@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nano Banana | v32.0 Visible Sliders</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/STLExporter.js"></script>
+    
+    <style>
+        :root { 
+            --fm-gold: #e6a822; 
+            --dark-bg: #030303;
+            --panel-dark: #000000;
+            --sb-blue: #0066ff;
+            --sb-bg: #f4f5f7;
+            --text-muted: #888888;
+        }
+        
+        body { margin: 0; overflow: hidden; height: 100vh; font-family: 'Roboto', sans-serif; transition: background 0.5s; }
+        body.mode-template { background: var(--dark-bg); color: #fff; }
+        body.mode-advanced { background: var(--sb-bg); color: #333; }
+
+        #onboarding { 
+            position: fixed; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000000 90%); 
+            z-index: 3000; display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            font-family: 'Cinzel', serif; color: #fff; transition: opacity 0.5s;
+        }
+        .luxury-card { border: 1px solid #333; background: rgba(20,20,20,0.8); width: 280px; padding: 40px; margin: 15px; cursor: pointer; transition: 0.3s; display: inline-block; text-align: center; }
+        .luxury-card:hover { border-color: var(--fm-gold); box-shadow: 0 0 20px rgba(230, 168, 34, 0.2); transform: translateY(-5px); }
+        .luxury-card h3 { color: var(--fm-gold); margin-bottom: 10px; }
+        .luxury-card p { font-family: 'Roboto'; font-size: 0.8rem; color: #888; }
+        .step { display: none; animation: fadeIn 0.5s ease; text-align: center; width: 100%; }
+        .step.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        #workspace { display: none; width: 100vw; height: 100vh; position: relative; }
+        #canvas-container { width: 100%; height: 100%; outline: none; }
+
+        /* FOOTMAPPER UI */
+        #template-ui { display: none; }
+        #fm-topnav { position: absolute; top: 30px; right: 40px; display: flex; flex-direction: column; align-items: flex-end; z-index: 20; }
+        .hamburger { font-size: 28px; cursor: pointer; margin-bottom: 20px; color: #fff; }
+        .top-btn { background: transparent; border: 1px solid #fff; color: #fff; font-size: 11px; font-weight: 500; letter-spacing: 1px; padding: 12px 20px; margin-bottom: 10px; cursor: pointer; text-transform: uppercase; width: 200px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; transition: 0.2s; }
+        .top-btn:hover { border-color: var(--fm-gold); color: var(--fm-gold); }
+        .price-divider { border-left: 1px solid #fff; padding-left: 15px; font-weight: bold; font-size: 13px; font-family: 'Share Tech Mono', monospace; }
+
+        #fm-sidebar { position: absolute; right: 40px; top: 180px; bottom: 100px; width: 340px; display: flex; flex-direction: column; z-index: 10; }
+        .panel-instruction { font-size: 14px; font-weight: 400; margin-bottom: 15px; color: #fff; }
+        .panel-instruction span { font-size: 11px; color: var(--text-muted); }
+
+        .accordion { list-style: none; padding: 0; margin: 0; border-top: 1px solid #333; overflow-y: auto; flex: 1; }
+        .acc-item { border-bottom: 1px solid #333; }
+        .acc-header { padding: 18px 5px; font-size: 11px; letter-spacing: 1px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: #aaa; transition: 0.2s; }
+        .acc-header:hover { color: #fff; }
+        .acc-left { display: flex; align-items: center; }
+        .acc-right { font-size: 10px; color: var(--text-muted); }
+        .indicator { width: 6px; height: 6px; border-radius: 50%; background: transparent; margin-right: 12px; }
+        
+        .acc-item.active .acc-header { color: #fff; }
+        .acc-item.active .indicator { background: var(--fm-gold); }
+        .acc-item.active .acc-right { color: #fff; }
+        
+        .acc-content { display: none; padding: 10px 5px 25px 20px; animation: fadeIn 0.3s ease; }
+        .acc-item.active .acc-content { display: block; }
+
+        .color-row { display: flex; gap: 10px; margin-bottom: 20px; }
+        .color-dot { width: 20px; height: 20px; cursor: pointer; border: 1px solid #444; }
+        .color-dot:hover { border-color: #fff; transform: scale(1.1); }
+        
+        .mat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; }
+        .mat-item { text-align: center; cursor: pointer; }
+        .mat-swatch { width: 100%; aspect-ratio: 1; border: 1px solid #333; margin-bottom: 8px; background-size: cover; transition: 0.2s; }
+        .mat-item:hover .mat-swatch { border-color: var(--fm-gold); box-shadow: 0 0 10px rgba(230,168,34,0.3); }
+        .mat-label { font-size: 9px; color: #aaa; line-height: 1.3; }
+
+        /* PERSISTENT SLIDERS */
+        #persistent-sliders { border-top: 1px solid #333; padding-top: 20px; margin-top: 10px; }
+        .slider-title { font-size: 11px; color: #fff; margin-bottom: 15px; letter-spacing: 1px; }
+        .slider-wrapper { margin-bottom: 15px; }
+        .slider-header { display: flex; justify-content: space-between; font-size: 10px; color: #aaa; margin-bottom: 6px; text-transform: uppercase; }
+        .slider-val { color: var(--fm-gold); font-family: 'Share Tech Mono', monospace; font-size: 11px; }
+        .param-slider { -webkit-appearance: none; width: 100%; height: 2px; background: #333; outline: none; }
+        .param-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #000; border: 2px solid var(--fm-gold); border-radius: 50%; cursor: pointer; transition: 0.2s; }
+        .param-slider::-webkit-slider-thumb:hover { background: var(--fm-gold); transform: scale(1.2); }
+
+        #fm-bottom { position: absolute; bottom: 40px; right: 40px; display: flex; align-items: center; gap: 40px; z-index: 20; }
+        .undo-btn { color: #fff; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
+        .undo-btn:hover { color: var(--fm-gold); }
+        .save-btn { background: var(--fm-gold); color: #000; border: none; padding: 16px 45px; font-size: 13px; font-weight: bold; letter-spacing: 1px; cursor: pointer; border-radius: 2px; }
+        .save-btn:hover { background: #fff; }
+
+        /* ASSEMBLY UI (HIDDEN FOR NOW) */
+        #assembly-ui { display: none; width: 100%; height: 100%; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div id="onboarding">
+    <div id="step-1" class="step active">
+        <h1 style="color:var(--fm-gold)">Select Anatomy</h1>
+        <div class="luxury-card" onclick="window.nextStep(2, 'Male')"><h3>Mens Last</h3><p>Standard D-Width.</p></div>
+        <div class="luxury-card" onclick="window.nextStep(2, 'Female')"><h3>Womens Last</h3><p>High Arch Profile.</p></div>
+    </div>
+    
+    <div id="step-2" class="step">
+        <h1 style="color:var(--fm-gold)">Select Engine</h1>
+        <div class="luxury-card" onclick="window.setMode('template')"><h3>Footmapper Engine</h3><p>Interactive parts, sliders, and material swapping.</p></div>
+        <div class="luxury-card" onclick="window.setMode('assembly')"><h3>Assembly Engine</h3><p>Visual library, auto-snapping, and drag-and-drop.</p></div>
+    </div>
+
+    <div id="step-3" class="step">
+        <h1 style="color:var(--fm-gold)">Calibration</h1>
+        <input type="number" id="size-input" value="42" style="background:transparent; border:none; border-bottom:2px solid var(--fm-gold); color:var(--fm-gold); font-size:3rem; text-align:center; width:100px; outline:none; font-family:'Cinzel'">
+        <br><br>
+        <button onclick="window.launchStudio()" style="padding:15px 40px; background:var(--fm-gold); color:#000; border:none; font-weight:bold; cursor:pointer; font-family:'Roboto'">ENTER STUDIO</button>
+    </div>
+</div>
+
+<div id="workspace">
+    <div id="canvas-container"></div>
+
+    <div id="template-ui">
+        <div id="fm-topnav">
+            <div class="hamburger">≡</div>
+            <div class="top-btn">SELECT SIZE <span style="font-size:8px;">▼</span></div>
+            <div class="top-btn">ADD TO BAG <span class="price-divider" id="cart-price">£120</span></div>
+        </div>
+
+        <div id="fm-sidebar">
+            <div class="panel-instruction">Select a panel <br><span>(or click the part of the shoe)</span></div>
+            
+            <ul class="accordion">
+                <li class="acc-item active" id="acc-toeCap">
+                    <div class="acc-header" onclick="window.activatePanel('toeCap')"><div class="acc-left"><span class="indicator"></span> TOE CAP</div><div class="acc-right">MATERIALS ></div></div>
+                    <div class="acc-content">
+                        <div class="color-row">
+                            <div class="color-dot" style="background:#111;" onclick="window.applyMat('#111111', 0.1)"></div>
+                            <div class="color-dot" style="background:#8b0000;" onclick="window.applyMat('#8b0000', 0.4)"></div>
+                            <div class="color-dot" style="background:#4a4a4a;" onclick="window.applyMat('#4a4a4a', 0.6)"></div>
+                            <div class="color-dot" style="background:#D4AF37;" onclick="window.applyMat('#D4AF37', 0.2)"></div>
+                        </div>
+                    </div>
+                </li>
+                <li class="acc-item" id="acc-frontPanel">
+                    <div class="acc-header" onclick="window.activatePanel('frontPanel')"><div class="acc-left"><span class="indicator"></span> FRONT PANEL</div><div class="acc-right">MATERIALS ></div></div>
+                    <div class="acc-content">
+                        <div class="mat-grid">
+                            <div class="mat-item" onclick="window.applyMat('#111111', 0.4)"><div class="mat-swatch" style="background: #111;"></div><div class="mat-label">Black Matte</div></div>
+                            <div class="mat-item" onclick="window.applyMat('#4a4a4a', 0.8)"><div class="mat-swatch" style="background: #4a4a4a;"></div><div class="mat-label">Grey Canvas</div></div>
+                        </div>
+                    </div>
+                </li>
+                <li class="acc-item" id="acc-backPanel">
+                    <div class="acc-header" onclick="window.activatePanel('backPanel')"><div class="acc-left"><span class="indicator"></span> BACK PANEL</div><div class="acc-right">MATERIALS ></div></div>
+                    <div class="acc-content">
+                        <div class="color-row">
+                            <div class="color-dot" style="background:#111;" onclick="window.applyMat('#111111', 0.2)"></div>
+                            <div class="color-dot" style="background:#8b0000;" onclick="window.applyMat('#8b0000', 0.4)"></div>
+                        </div>
+                    </div>
+                </li>
+                <li class="acc-item" id="acc-sole">
+                    <div class="acc-header" onclick="window.activatePanel('sole')"><div class="acc-left"><span class="indicator"></span> SOLE</div><div class="acc-right">MATERIALS ></div></div>
+                    <div class="acc-content">
+                        <div class="color-row">
+                            <div class="color-dot" style="background:#000;" onclick="window.applyMat('#000000', 0.8)"></div>
+                            <div class="color-dot" style="background:#d2b48c;" onclick="window.applyMat('#d2b48c', 0.8)"></div>
+                        </div>
+                    </div>
+                </li>
+            </ul>
+
+            <div id="persistent-sliders">
+                <div class="slider-title">PARAMETRIC ENGINEERING</div>
+                <div class="slider-wrapper">
+                    <div class="slider-header"><span>Sole Stack</span><span class="slider-val" id="val-sole">10.0mm</span></div>
+                    <input type="range" class="param-slider" id="sl-sole" min="5" max="30" value="10" step="0.5" oninput="window.updateShapeParams()">
+                </div>
+                <div class="slider-wrapper">
+                    <div class="slider-header"><span>Heel Pitch</span><span class="slider-val" id="val-heel">20.0mm</span></div>
+                    <input type="range" class="param-slider" id="sl-heel" min="10" max="50" value="20" step="0.5" oninput="window.updateShapeParams()">
+                </div>
+            </div>
+        </div>
+
+        <div id="fm-bottom">
+            <div class="undo-btn" onclick="window.undoLast()">⟲ undo last step</div>
+            <button class="save-btn" onclick="window.exportDesign()">SAVE / EXPORT</button>
+        </div>
+    </div>
+</div>
+
+<script>
+let scene, camera, renderer, controls;
+let fmParts = {}; 
+let state = { gender: 'Male', size: 42, mode: 'template', activePart: 'toeCap' };
+let editHistory = []; 
+let raycaster = new THREE.Raycaster();
+let mouse = new THREE.Vector2();
+
+window.nextStep = function(s, val) {
+    if(s === 2) state.gender = val;
+    document.querySelectorAll('.step').forEach(e => e.classList.remove('active'));
+    document.getElementById('step-'+s).classList.add('active');
+};
+
+window.setMode = function(m) { state.mode = m; window.nextStep(3); };
+
+window.launchStudio = function() {
+    const inputEl = document.getElementById('size-input');
+    if(inputEl) state.size = inputEl.value;
+
+    document.getElementById('onboarding').style.opacity = 0;
+    setTimeout(() => {
+        document.getElementById('onboarding').style.display = 'none';
+        document.getElementById('workspace').style.display = 'flex';
+        init3D();
+        document.body.classList.add('mode-template');
+        document.getElementById('template-ui').style.display = 'block';
+        buildFootmapperShoe();
+        document.getElementById('canvas-container').addEventListener('click', onFootmapperClick);
+    }, 500);
+};
+
+function init3D() {
+    const container = document.getElementById("canvas-container");
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x000000); 
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
+    camera.position.set(12, 4, -8);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.shadowMap.enabled = true;
+    container.appendChild(renderer.domElement);
+
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.target.set(0, 0.5, 0);
+
+    const keyLight = new THREE.SpotLight(0xffffff, 1.5);
+    keyLight.position.set(10, 15, 10);
+    const fillLight = new THREE.SpotLight(0xffffff, 0.5);
+    fillLight.position.set(-10, 5, -10);
+    scene.add(keyLight, fillLight, new THREE.AmbientLight(0xffffff, 0.2));
+    
+    animate();
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    if(controls) controls.update();
+    if(renderer && scene && camera) renderer.render(scene, camera);
+}
+
+function buildFootmapperShoe() {
+    const soleShape = new THREE.Shape();
+    soleShape.moveTo(0,0); soleShape.bezierCurveTo(1.2, 0.5, 1.5, 2, 0.8, 4); soleShape.bezierCurveTo(0, 4.5, -1.2, 4, -1, 2); soleShape.bezierCurveTo(-1.2, 0.5, -0.8, 0, 0, 0);
+    const soleGeo = new THREE.ExtrudeGeometry(soleShape, { depth: 0.2, bevelEnabled: true, bevelThickness: 0.05 });
+    fmParts.sole = new THREE.Mesh(soleGeo, new THREE.MeshStandardMaterial({ color: 0x222222, roughness: 0.8 }));
+    fmParts.sole.rotation.x = Math.PI/2; fmParts.sole.position.set(0, 0, -2.5); fmParts.sole.name = 'sole';
+    scene.add(fmParts.sole);
+
+    const toeGeo = new THREE.SphereGeometry(1.0, 32, 16, 0, Math.PI*2, 0, Math.PI/2);
+    fmParts.toeCap = new THREE.Mesh(toeGeo, new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.1 }));
+    fmParts.toeCap.position.set(-0.1, 0.3, 1.2); fmParts.toeCap.scale.set(0.9, 0.5, 1.2); fmParts.toeCap.rotation.y = -0.1; fmParts.toeCap.name = 'toeCap';
+    scene.add(fmParts.toeCap);
+
+    const frontGeo = new THREE.CylinderGeometry(0.9, 1.1, 1.8, 32, 1, false);
+    fmParts.frontPanel = new THREE.Mesh(frontGeo, new THREE.MeshStandardMaterial({ color: 0x4a4a4a, roughness: 0.5 }));
+    fmParts.frontPanel.position.set(-0.1, 0.8, 0.1); fmParts.frontPanel.rotation.x = Math.PI/2.5; fmParts.frontPanel.scale.set(1, 1, 0.8); fmParts.frontPanel.name = 'frontPanel';
+    scene.add(fmParts.frontPanel);
+
+    const backGeo = new THREE.CylinderGeometry(0.95, 1.0, 2.2, 32, 1, false);
+    fmParts.backPanel = new THREE.Mesh(backGeo, new THREE.MeshStandardMaterial({ color: 0x8b0000, roughness: 0.4 }));
+    fmParts.backPanel.position.set(0, 1.0, -1.2); fmParts.backPanel.rotation.x = -0.1; fmParts.backPanel.name = 'backPanel';
+    scene.add(fmParts.backPanel);
+}
+
+window.updateShapeParams = function() {
+    const soleH = parseFloat(document.getElementById('sl-sole').value);
+    const heelH = parseFloat(document.getElementById('sl-heel').value);
+
+    document.getElementById('val-sole').innerText = soleH + "mm";
+    document.getElementById('val-heel').innerText = heelH + "mm";
+
+    const basePrice = 120;
+    document.getElementById('cart-price').innerText = "£" + (basePrice + ((soleH - 10) * 0.5) + ((heelH - 20) * 0.4)).toFixed(0);
+
+    if(fmParts.sole) {
+        fmParts.sole.scale.z = soleH / 10;
+        const lift = (soleH - 10) / 40;
+        const heelLift = (heelH - 20) / 40;
+        
+        fmParts.toeCap.position.y = 0.3 + lift;
+        fmParts.frontPanel.position.y = 0.8 + lift + (heelLift/2);
+        fmParts.backPanel.position.y = 1.0 + lift + heelLift;
+    }
+};
+
+function onFootmapperClick(event) {
+    const container = document.getElementById("canvas-container");
+    const rect = container.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(Object.values(fmParts));
+    if(intersects.length > 0) window.activatePanel(intersects[0].object.name);
+}
+
+window.activatePanel = function(partName) {
+    state.activePart = partName;
+    document.querySelectorAll('.acc-item').forEach(el => el.classList.remove('active'));
+    const target = document.getElementById('acc-' + partName);
+    if(target) target.classList.add('active');
+};
+
+window.applyMat = function(hexColor, roughnessSetting) {
+    const mesh = fmParts[state.activePart];
+    if(!mesh) return;
+    editHistory.push({ part: mesh, oldColor: mesh.material.color.getHex(), oldRoughness: mesh.material.roughness });
+    mesh.material.color.setHex(hexColor.replace('#', '0x'));
+    mesh.material.roughness = roughnessSetting;
+    mesh.material.emissive.setHex(0x333333);
+    setTimeout(() => { mesh.material.emissive.setHex(0x000000); }, 150);
+};
+
+window.undoLast = function() {
+    if(editHistory.length === 0) return;
+    const last = editHistory.pop();
+    last.part.material.color.setHex(last.oldColor);
+    last.part.material.roughness = last.oldRoughness;
+};
+
+window.exportDesign = function() {
+    try {
+        const exporter = new THREE.STLExporter();
+        const exportGroup = new THREE.Group();
+        Object.values(fmParts).forEach(p => exportGroup.add(p.clone()));
+        const stlBlob = new Blob([exporter.parse(exportGroup)], { type: 'text/plain' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(stlBlob);
+        link.download = `NanoBanana_Design.stl`;
+        link.click();
+    } catch (e) { alert("Export Error."); }
+};
+
+window.addEventListener('resize', () => {
+    if(camera && renderer) {
+        const container = document.getElementById('canvas-container');
+        if(container) {
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+    }
+});
+</script>
+</body>
+</html>
