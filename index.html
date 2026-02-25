@@ -3,231 +3,202 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Footlabs | 3D Configurator Pro</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <title>Footlabs | 3D Design Studio</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Roboto:wght@300;400;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     
     <style>
-        :root { 
-            --fm-gold: #e6a822; 
-            --dark-bg: #111111; 
-            --panel-dark: #000000;
-            --text-muted: #888888;
+        :root { --gold: #e6a822; --bg: #0a0a0a; --panel: #000000; }
+        body { margin: 0; overflow: hidden; background: var(--bg); color: #fff; font-family: 'Roboto', sans-serif; }
+
+        /* ONBOARDING */
+        #onboarding {
+            position: fixed; inset: 0; background: var(--bg);
+            z-index: 1000; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; transition: 0.8s;
         }
-        
-        body { margin: 0; overflow: hidden; height: 100vh; background: var(--dark-bg); color: #fff; font-family: 'Roboto', sans-serif; }
+        #onboarding.hidden { opacity: 0; pointer-events: none; }
+        .logo-text { font-family: 'Cinzel'; font-size: clamp(32px, 8vw, 48px); letter-spacing: 12px; color: var(--gold); }
+        #load-status { margin: 20px; font-family: 'Share Tech Mono'; font-size: 12px; color: #444; }
+        #enter-btn {
+            display: none; background: transparent; border: 1px solid var(--gold);
+            color: var(--gold); padding: 15px 50px; cursor: pointer;
+            font-family: 'Cinzel'; letter-spacing: 2px;
+        }
 
-        #workspace { width: 100vw; height: 100vh; position: relative; display: flex; }
-        #canvas-container { flex: 1; height: 100%; outline: none; cursor: crosshair; }
+        /* WORKSPACE */
+        #workspace { width: 100vw; height: 100vh; display: flex; opacity: 0; transition: 1.5s; }
+        #workspace.visible { opacity: 1; }
+        #canvas-container { flex: 1; cursor: crosshair; }
 
-        /* TOP NAVBAR */
-        #fm-topnav { position: absolute; top: 30px; right: 40px; display: flex; flex-direction: column; align-items: flex-end; z-index: 20; }
-        .top-btn { background: transparent; border: 1px solid #fff; color: #fff; font-size: 11px; font-weight: 500; letter-spacing: 1px; padding: 12px 20px; margin-bottom: 10px; cursor: pointer; text-transform: uppercase; width: 200px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; transition: 0.2s; }
-        .top-btn:hover { border-color: var(--fm-gold); color: var(--fm-gold); }
-        .price-divider { border-left: 1px solid #fff; padding-left: 15px; font-weight: bold; font-size: 13px; font-family: 'Share Tech Mono', monospace; }
-
-        /* RIGHT SIDEBAR MENU */
-        #fm-sidebar { position: absolute; right: 40px; top: 180px; bottom: 100px; width: 340px; display: flex; flex-direction: column; z-index: 10; background: var(--panel-dark); box-shadow: -10px 0 30px rgba(0,0,0,0.8); border: 1px solid #222; }
-        
-        .target-display { background: #1a1a1a; padding: 20px; border-bottom: 2px solid var(--fm-gold); }
-        .target-title { font-size: 10px; color: var(--fm-gold); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; font-weight: bold;}
-        .target-name { font-size: 18px; font-weight: 300; color: #fff; font-family: 'Cinzel', serif; }
+        /* SIDEBAR */
+        #fm-sidebar { 
+            position: absolute; right: 40px; top: 100px; bottom: 40px; 
+            width: 320px; background: var(--panel); border: 1px solid #222;
+            display: flex; flex-direction: column; z-index: 10;
+        }
+        .target-display { background: #111; padding: 20px; border-bottom: 2px solid var(--gold); }
+        .target-name { font-family: 'Cinzel'; font-size: 18px; color: #fff; }
 
         .acc-content { padding: 20px; overflow-y: auto; flex: 1; }
+        .section-title { font-size: 10px; color: #555; text-transform: uppercase; letter-spacing: 2px; margin: 20px 0 10px; display: block; }
         
-        .section-title { font-size: 10px; color: #666; margin-bottom: 10px; display: block; text-transform: uppercase; letter-spacing: 1px; margin-top: 15px; }
+        .control-box { background: #0a0a0a; border: 1px solid #222; padding: 12px; margin-bottom: 10px; }
+        .control-label { font-size: 11px; display: flex; justify-content: space-between; margin-bottom: 8px; color: #aaa; }
         
-        .infinite-color-wrapper { display: flex; flex-direction: column; gap: 8px; background: #111; padding: 12px; border: 1px solid #333; margin-bottom: 10px; border-radius: 4px; }
-        .slider-header { display: flex; justify-content: space-between; align-items: center; }
-        .slider-header span { font-size: 10px; color: #fff; letter-spacing: 1px; }
+        input[type="range"] { width: 100%; accent-color: var(--gold); cursor: pointer; }
+        input[type="color"] { background: none; border: none; width: 30px; height: 20px; cursor: pointer; }
 
-        input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--fm-gold); }
-        
-        input[type="color"] { -webkit-appearance: none; border: none; width: 40px; height: 25px; cursor: pointer; background: none; }
-        
-        .color-row { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
-        .color-dot { width: 22px; height: 22px; cursor: pointer; border: 2px solid #444; border-radius: 50%; transition: 0.2s; }
-        .color-dot:hover { border-color: #fff; transform: scale(1.2); }
-
-        /* BOTTOM BAR */
-        #fm-bottom { position: absolute; bottom: 40px; right: 40px; display: flex; align-items: center; gap: 20px; z-index: 20; }
-        .save-btn { background: var(--fm-gold); color: #000; border: none; padding: 16px 45px; font-size: 13px; font-weight: bold; letter-spacing: 1px; cursor: pointer; transition: 0.2s; }
-        
-        #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); color: var(--fm-gold); display: flex; justify-content: center; align-items: center; z-index: 1000; flex-direction: column; }
+        #topnav { position: absolute; top: 30px; left: 40px; font-family: 'Cinzel'; font-size: 18px; color: var(--gold); z-index: 20; letter-spacing: 4px; }
     </style>
 </head>
 <body>
 
-<div id="workspace">
-    <div id="loading-overlay">
-        <div style="font-family:'Cinzel'; font-size:24px;">LOADING STUDIO</div>
-        <div id="loading-sub">Connecting to shoe.glb...</div>
-    </div>
-    
-    <div id="canvas-container"></div>
-
-    <div id="fm-topnav">
-        <div class="top-btn">SELECT SIZE <span style="font-size:8px;">▼</span></div>
-        <div class="top-btn">ADD TO BAG <span class="price-divider">£120</span></div>
+    <div id="onboarding">
+        <div class="logo-text">FOOTLABS</div>
+        <div id="load-status">ANALYZING GEOMETRY...</div>
+        <button id="enter-btn" onclick="startExperience()">ACCESS STUDIO</button>
     </div>
 
-    <div id="fm-sidebar">
-        <div class="target-display">
-            <div class="target-title">Active Selection</div>
-            <div class="target-name" id="active-part-name">Click Model</div>
-        </div>
-        
-        <div class="acc-content">
-            <span class="section-title">Visuals</span>
-            <div class="infinite-color-wrapper">
-                <div class="slider-header"><span>CUSTOM COLOR</span> <input type="color" value="#e6a822" oninput="window.applyMat(this.value, 0.4)"></div>
-            </div>
-            <div class="color-row">
-                <div class="color-dot" style="background:#111;" onclick="window.applyMat('#111111', 0.2)"></div>
-                <div class="color-dot" style="background:#ffffff;" onclick="window.applyMat('#ffffff', 0.2)"></div>
-                <div class="color-dot" style="background:#8b0000;" onclick="window.applyMat('#8b0000', 0.3)"></div>
-                <div class="color-dot" style="background:#1e2a3b;" onclick="window.applyMat('#1e2a3b', 0.3)"></div>
+    <div id="topnav">FOOTLABS // CONFIGURATOR</div>
+
+    <div id="workspace">
+        <div id="canvas-container"></div>
+        <div id="fm-sidebar">
+            <div class="target-display">
+                <div style="font-size:9px; color:var(--gold); margin-bottom:5px;">ACTIVE LAYER</div>
+                <div class="target-name" id="active-part-name">SELECT COMPONENT</div>
             </div>
 
-            <span class="section-title">Finish / Texture</span>
-            <div class="infinite-color-wrapper">
-                <div class="slider-header"><span>METALLIC</span></div>
-                <input type="range" min="0" max="1" step="0.1" value="0.1" oninput="window.updatePhysic('metalness', this.value)">
-            </div>
-            <div class="infinite-color-wrapper">
-                <div class="slider-header"><span>GLOSS / SHINE</span></div>
-                <input type="range" min="0" max="1" step="0.1" value="0.5" oninput="window.updatePhysic('roughness', 1 - this.value)">
-            </div>
+            <div class="acc-content">
+                <span class="section-title">Aesthetics</span>
+                <div class="control-box">
+                    <div class="control-label">HEX COLOR <input type="color" oninput="window.applyColor(this.value)"></div>
+                </div>
 
-            <span class="section-title">Anatomy Adjustment</span>
-            <div class="infinite-color-wrapper">
-                <div class="slider-header"><span>SOLE THICKNESS</span></div>
-                <input type="range" min="0.5" max="3" step="0.1" value="1" oninput="window.tweakScale('y', this.value)">
-            </div>
-            <div class="infinite-color-wrapper">
-                <div class="slider-header"><span>TOE WIDTH</span></div>
-                <input type="range" min="0.5" max="2" step="0.1" value="1" oninput="window.tweakScale('x', this.value)">
+                <span class="section-title">Material Physics</span>
+                <div class="control-box">
+                    <div class="control-label">METALLIC <span>REFLECTION</span></div>
+                    <input type="range" min="0" max="1" step="0.1" value="0.1" oninput="window.updateMat('metalness', this.value)">
+                </div>
+                <div class="control-box">
+                    <div class="control-label">GLOSS <span>ROUGHNESS</span></div>
+                    <input type="range" min="0" max="1" step="0.1" value="0.5" oninput="window.updateMat('roughness', 1 - this.value)">
+                </div>
+
+                <span class="section-title">Parametric Tweaks</span>
+                <div class="control-box">
+                    <div class="control-label">SOLE THICKNESS</div>
+                    <input type="range" min="0.5" max="3" step="0.1" value="1" oninput="window.updateScale('y', this.value)">
+                </div>
+                <div class="control-box">
+                    <div class="control-label">TOE BOX WIDTH</div>
+                    <input type="range" min="0.5" max="1.8" step="0.1" value="1" oninput="window.updateScale('x', this.value)">
+                </div>
             </div>
         </div>
     </div>
-
-    <div id="fm-bottom">
-        <button class="save-btn" onclick="location.reload()">RESET MODEL</button>
-    </div>
-</div>
 
 <script>
-// ==========================================
-// THE COMPLETE FOOTLABS ENGINE (v40.0)
-// ==========================================
-
-let scene, camera, renderer, controls, activeMesh = null;
-let realShoeMeshes = [];
-const gltfLoader = new THREE.GLTFLoader();
+let scene, camera, renderer, controls, shoe, activePart = null;
+let shoeParts = [];
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-init3D();
-loadRealShoe();
-document.getElementById('canvas-container').addEventListener('click', onShoeClick);
+// 1. ASSET LOADING
+const loader = new THREE.GLTFLoader();
+loader.load('models/shoe.glb', (gltf) => {
+    shoe = gltf.scene;
+    const box = new THREE.Box3().setFromObject(shoe);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const scale = 8 / Math.max(size.x, size.y, size.z);
+    shoe.scale.set(scale, scale, scale);
+    shoe.position.sub(center.multiplyScalar(scale));
+    shoe.position.y += 0.5; // Lift slightly for grid
 
-function init3D() {
-    const container = document.getElementById("canvas-container");
+    shoe.traverse(c => {
+        if(c.isMesh) {
+            c.material = c.material.clone();
+            shoeParts.push(c);
+        }
+    });
+
+    document.getElementById('load-status').style.display = 'none';
+    document.getElementById('enter-btn').style.display = 'block';
+});
+
+// 2. SCENE INITIALIZATION (WITH GRID)
+function initScene() {
+    const container = document.getElementById('canvas-container');
     scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111111); 
-    
-    camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
-    camera.position.set(10, 3, -10);
+    camera = new THREE.PerspectiveCamera(40, container.clientWidth/container.clientHeight, 0.1, 1000);
+    camera.position.set(10, 5, 10);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
     container.appendChild(renderer.domElement);
 
+    // RESTORED GRID SYSTEM
+    const grid = new THREE.GridHelper(40, 40, 0x444444, 0x111111);
+    grid.position.y = -1.5;
+    scene.add(grid);
+
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.autoRotate = true;
     controls.autoRotateSpeed = 0.5;
 
-    // Studio Lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-    const sun = new THREE.DirectionalLight(0xffffff, 1);
-    sun.position.set(5, 10, 7.5);
-    scene.add(sun);
-    
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const light = new THREE.DirectionalLight(0xffffff, 1.2);
+    light.position.set(5, 10, 5);
+    scene.add(light);
+
+    scene.add(shoe);
     animate();
 }
 
 function animate() {
     requestAnimationFrame(animate);
-    if(controls) controls.update();
+    controls.update();
     renderer.render(scene, camera);
 }
 
-function loadRealShoe() {
-    gltfLoader.load('models/shoe.glb', function (gltf) {
-        const shoe = gltf.scene;
-        const box = new THREE.Box3().setFromObject(shoe);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const scale = 8 / Math.max(size.x, size.y, size.z); 
-        shoe.scale.set(scale, scale, scale);
-        shoe.position.sub(center.multiplyScalar(scale));
-
-        shoe.traverse(child => {
-            if (child.isMesh) {
-                child.material = child.material.clone();
-                realShoeMeshes.push(child);
-            }
-        });
-        scene.add(shoe);
-        document.getElementById('loading-overlay').style.display = 'none';
-    }, undefined, function (e) {
-        document.getElementById('loading-sub').innerText = "ERROR: models/shoe.glb not found!";
-    });
+function startExperience() {
+    document.getElementById('onboarding').classList.add('hidden');
+    document.getElementById('workspace').classList.add('visible');
+    initScene();
 }
 
-function onShoeClick(event) {
-    const rect = document.getElementById("canvas-container").getBoundingClientRect();
-    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+// 3. INTERACTION TOOLS
+document.getElementById('canvas-container').addEventListener('mousedown', (e) => {
+    const rect = document.getElementById('canvas-container').getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
     
     raycaster.setFromCamera(mouse, camera);
-    const hits = raycaster.intersectObjects(realShoeMeshes, true);
+    const intersects = raycaster.intersectObjects(shoeParts);
     
-    if(hits.length > 0) {
-        activeMesh = hits[0].object;
-        document.getElementById('active-part-name').innerText = activeMesh.name || "Selected Part";
-        controls.autoRotate = false;
+    if(intersects.length > 0) {
+        activePart = intersects[0].object;
+        document.getElementById('active-part-name').innerText = activePart.name.replace(/_/g, ' ').toUpperCase();
+        controls.autoRotate = false; // Stop spin on user interaction
     }
-}
+});
 
-// --- ENGINE TOOLS ---
-
-window.applyMat = function(color, rough) {
-    if(!activeMesh) return alert("Select a part first!");
-    activeMesh.material.color.setHex(color.replace('#', '0x'));
-    activeMesh.material.roughness = rough;
-};
-
-window.updatePhysic = function(prop, val) {
-    if(!activeMesh) return;
-    activeMesh.material[prop] = parseFloat(val);
-    activeMesh.material.needsUpdate = true;
-};
-
-window.tweakScale = function(axis, val) {
-    if(!activeMesh) return;
-    activeMesh.scale[axis] = parseFloat(val);
-};
+window.applyColor = (c) => { if(activePart) activePart.material.color.set(c); };
+window.updateMat = (p, v) => { if(activePart) activePart.material[p] = parseFloat(v); };
+window.updateScale = (axis, v) => { if(activePart) activePart.scale[axis] = parseFloat(v); };
 
 window.addEventListener('resize', () => {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const container = document.getElementById('canvas-container');
+    camera.aspect = container.clientWidth / container.clientHeight;
     camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(container.clientWidth, container.clientHeight);
 });
 </script>
 </body>
