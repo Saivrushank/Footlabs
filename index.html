@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Footlabs | 3D Configurator</title>
+    <title>Footlabs | 3D Configurator Pro</title>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -25,7 +25,6 @@
 
         /* TOP NAVBAR */
         #fm-topnav { position: absolute; top: 30px; right: 40px; display: flex; flex-direction: column; align-items: flex-end; z-index: 20; }
-        .hamburger { font-size: 28px; cursor: pointer; margin-bottom: 20px; color: #fff; }
         .top-btn { background: transparent; border: 1px solid #fff; color: #fff; font-size: 11px; font-weight: 500; letter-spacing: 1px; padding: 12px 20px; margin-bottom: 10px; cursor: pointer; text-transform: uppercase; width: 200px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; transition: 0.2s; }
         .top-btn:hover { border-color: var(--fm-gold); color: var(--fm-gold); }
         .price-divider { border-left: 1px solid #fff; padding-left: 15px; font-weight: bold; font-size: 13px; font-family: 'Share Tech Mono', monospace; }
@@ -33,123 +32,104 @@
         /* RIGHT SIDEBAR MENU */
         #fm-sidebar { position: absolute; right: 40px; top: 180px; bottom: 100px; width: 340px; display: flex; flex-direction: column; z-index: 10; background: var(--panel-dark); box-shadow: -10px 0 30px rgba(0,0,0,0.8); border: 1px solid #222; }
         
-        /* DYNAMIC ACTIVE PART DISPLAY */
         .target-display { background: #1a1a1a; padding: 20px; border-bottom: 2px solid var(--fm-gold); }
         .target-title { font-size: 10px; color: var(--fm-gold); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; font-weight: bold;}
         .target-name { font-size: 18px; font-weight: 300; color: #fff; font-family: 'Cinzel', serif; }
 
-        .panel-instruction { font-size: 12px; font-weight: 400; color: var(--text-muted); padding: 20px; text-align: center; border-bottom: 1px solid #222;}
-
         .acc-content { padding: 20px; overflow-y: auto; flex: 1; }
         
-        /* COLOR & MATERIAL TOOLS */
-        .section-title { font-size: 10px; color: #666; margin-bottom: 10px; display: block; text-transform: uppercase; letter-spacing: 1px; }
+        .section-title { font-size: 10px; color: #666; margin-bottom: 10px; display: block; text-transform: uppercase; letter-spacing: 1px; margin-top: 15px; }
         
-        .infinite-color-wrapper { display: flex; justify-content: space-between; align-items: center; background: #111; padding: 15px; border: 1px solid #333; margin-bottom: 20px; border-radius: 4px; }
-        .infinite-color-wrapper span { font-size: 11px; color: #fff; letter-spacing: 1px; }
-        input[type="color"] { -webkit-appearance: none; border: none; width: 50px; height: 30px; cursor: pointer; background: none; padding: 0; }
-        input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-        input[type="color"]::-webkit-color-swatch { border: 1px solid #555; border-radius: 2px; }
+        .infinite-color-wrapper { display: flex; flex-direction: column; gap: 8px; background: #111; padding: 12px; border: 1px solid #333; margin-bottom: 10px; border-radius: 4px; }
+        .slider-header { display: flex; justify-content: space-between; align-items: center; }
+        .slider-header span { font-size: 10px; color: #fff; letter-spacing: 1px; }
+
+        input[type="range"] { width: 100%; cursor: pointer; accent-color: var(--fm-gold); }
         
-        .color-row { display: flex; gap: 10px; margin-bottom: 25px; align-items: center; }
-        .color-dot { width: 25px; height: 25px; cursor: pointer; border: 2px solid #444; border-radius: 50%; transition: 0.2s; }
+        input[type="color"] { -webkit-appearance: none; border: none; width: 40px; height: 25px; cursor: pointer; background: none; }
+        
+        .color-row { display: flex; gap: 10px; margin-bottom: 15px; align-items: center; }
+        .color-dot { width: 22px; height: 22px; cursor: pointer; border: 2px solid #444; border-radius: 50%; transition: 0.2s; }
         .color-dot:hover { border-color: #fff; transform: scale(1.2); }
-        
-        .mat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 15px; }
-        .mat-item { text-align: center; cursor: pointer; }
-        .mat-swatch { width: 100%; aspect-ratio: 1; border: 1px solid #333; margin-bottom: 8px; background-size: cover; transition: 0.2s; border-radius: 4px;}
-        .mat-item:hover .mat-swatch { border-color: var(--fm-gold); box-shadow: 0 0 10px rgba(230,168,34,0.3); }
-        .mat-label { font-size: 9px; color: #aaa; line-height: 1.3; text-transform: uppercase; }
 
         /* BOTTOM BAR */
         #fm-bottom { position: absolute; bottom: 40px; right: 40px; display: flex; align-items: center; gap: 20px; z-index: 20; }
-        .undo-btn { color: #fff; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 8px; transition: 0.2s; background: #111; padding: 15px 20px; border: 1px solid #333; text-transform: uppercase; letter-spacing: 1px;}
-        .undo-btn:hover { color: var(--fm-gold); border-color: var(--fm-gold); }
         .save-btn { background: var(--fm-gold); color: #000; border: none; padding: 16px 45px; font-size: 13px; font-weight: bold; letter-spacing: 1px; cursor: pointer; transition: 0.2s; }
-        .save-btn:hover { background: #fff; box-shadow: 0 0 15px rgba(255,255,255,0.4); }
         
-        #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); color: var(--fm-gold); display: flex; justify-content: center; align-items: center; z-index: 1000; font-family: 'Cinzel'; font-size: 24px; font-weight: bold; flex-direction: column; }
-        #loading-sub { font-family: 'Roboto'; font-size: 14px; color: #fff; margin-top: 10px; font-weight: normal; }
+        #loading-overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.9); color: var(--fm-gold); display: flex; justify-content: center; align-items: center; z-index: 1000; flex-direction: column; }
     </style>
 </head>
 <body>
 
 <div id="workspace">
     <div id="loading-overlay">
-        <div>INITIALIZING 3D STUDIO</div>
-        <div id="loading-sub">Downloading shoe.glb geometry and textures...</div>
+        <div style="font-family:'Cinzel'; font-size:24px;">LOADING STUDIO</div>
+        <div id="loading-sub">Connecting to shoe.glb...</div>
     </div>
     
     <div id="canvas-container"></div>
 
     <div id="fm-topnav">
-        <div class="hamburger">≡</div>
         <div class="top-btn">SELECT SIZE <span style="font-size:8px;">▼</span></div>
-        <div class="top-btn">ADD TO BAG <span class="price-divider" id="cart-price">£120</span></div>
+        <div class="top-btn">ADD TO BAG <span class="price-divider">£120</span></div>
     </div>
 
     <div id="fm-sidebar">
         <div class="target-display">
-            <div class="target-title">Currently Editing</div>
-            <div class="target-name" id="active-part-name">None Selected</div>
+            <div class="target-title">Active Selection</div>
+            <div class="target-name" id="active-part-name">Click Model</div>
         </div>
         
-        <div class="panel-instruction">Click any part of the 3D model to select it, then apply a color or material below.</div>
-        
         <div class="acc-content">
+            <span class="section-title">Visuals</span>
             <div class="infinite-color-wrapper">
-                <span>CUSTOM COLOR</span>
-                <input type="color" value="#e6a822" oninput="window.applyMat(this.value, 0.4)">
+                <div class="slider-header"><span>CUSTOM COLOR</span> <input type="color" value="#e6a822" oninput="window.applyMat(this.value, 0.4)"></div>
             </div>
-            
-            <span class="section-title">Classic Leather Colors</span>
             <div class="color-row">
                 <div class="color-dot" style="background:#111;" onclick="window.applyMat('#111111', 0.2)"></div>
                 <div class="color-dot" style="background:#ffffff;" onclick="window.applyMat('#ffffff', 0.2)"></div>
-                <div class="color-dot" style="background:#3b1e11;" onclick="window.applyMat('#3b1e11', 0.3)"></div>
                 <div class="color-dot" style="background:#8b0000;" onclick="window.applyMat('#8b0000', 0.3)"></div>
                 <div class="color-dot" style="background:#1e2a3b;" onclick="window.applyMat('#1e2a3b', 0.3)"></div>
             </div>
 
-            <span class="section-title">Specialty Materials</span>
-            <div class="mat-grid">
-                <div class="mat-item" onclick="window.applyMat('#111111', 0.8)">
-                    <div class="mat-swatch" style="background: repeating-linear-gradient(45deg, #222, #222 2px, #333 2px, #333 4px);"></div>
-                    <div class="mat-label">Matte Canvas</div>
-                </div>
-                <div class="mat-item" onclick="window.applyMat('#8b6b4a', 0.9)">
-                    <div class="mat-swatch" style="background: #8b6b4a;"></div>
-                    <div class="mat-label">Rough Suede</div>
-                </div>
-                <div class="mat-item" onclick="window.applyMat('#050505', 0.0)">
-                    <div class="mat-swatch" style="background: linear-gradient(135deg, #444, #000);"></div>
-                    <div class="mat-label">Patent Gloss</div>
-                </div>
+            <span class="section-title">Finish / Texture</span>
+            <div class="infinite-color-wrapper">
+                <div class="slider-header"><span>METALLIC</span></div>
+                <input type="range" min="0" max="1" step="0.1" value="0.1" oninput="window.updatePhysic('metalness', this.value)">
+            </div>
+            <div class="infinite-color-wrapper">
+                <div class="slider-header"><span>GLOSS / SHINE</span></div>
+                <input type="range" min="0" max="1" step="0.1" value="0.5" oninput="window.updatePhysic('roughness', 1 - this.value)">
+            </div>
+
+            <span class="section-title">Anatomy Adjustment</span>
+            <div class="infinite-color-wrapper">
+                <div class="slider-header"><span>SOLE THICKNESS</span></div>
+                <input type="range" min="0.5" max="3" step="0.1" value="1" oninput="window.tweakScale('y', this.value)">
+            </div>
+            <div class="infinite-color-wrapper">
+                <div class="slider-header"><span>TOE WIDTH</span></div>
+                <input type="range" min="0.5" max="2" step="0.1" value="1" oninput="window.tweakScale('x', this.value)">
             </div>
         </div>
     </div>
 
     <div id="fm-bottom">
-        <div class="undo-btn" onclick="window.undoLast()">⟲ Undo Last Action</div>
-        <button class="save-btn" onclick="alert('Configuration saved!')">SAVE DESIGN</button>
+        <button class="save-btn" onclick="location.reload()">RESET MODEL</button>
     </div>
 </div>
 
 <script>
 // ==========================================
-// THE INTERACTIVE GLTF ENGINE (v39.0)
+// THE COMPLETE FOOTLABS ENGINE (v40.0)
 // ==========================================
 
-let scene, camera, renderer, controls;
-let realShoeMeshes = []; // Array of all selectable parts
-let activeMesh = null; // The piece currently selected
-let editHistory = []; 
-let raycaster = new THREE.Raycaster();
-let mouse = new THREE.Vector2();
-
+let scene, camera, renderer, controls, activeMesh = null;
+let realShoeMeshes = [];
 const gltfLoader = new THREE.GLTFLoader();
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
 
-// Initialize Studio automatically (Removed Onboarding for faster testing)
 init3D();
 loadRealShoe();
 document.getElementById('canvas-container').addEventListener('click', onShoeClick);
@@ -159,43 +139,24 @@ function init3D() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x111111); 
     
-    // Add subtle studio floor
-    const grid = new THREE.GridHelper(50, 50, 0x222222, 0x1a1a1a);
-    grid.position.y = -1.5;
-    scene.add(grid);
-    
     camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
     camera.position.set(10, 3, -10);
 
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.outputEncoding = THREE.sRGBEncoding; // Crucial for texture colors
+    renderer.outputEncoding = THREE.sRGBEncoding;
     container.appendChild(renderer.domElement);
 
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
-    controls.autoRotate = true; // Slowly spin model to show it off
-    controls.autoRotateSpeed = 1.0;
-    controls.maxPolarAngle = Math.PI / 2 + 0.1; // Prevent going too far below the floor
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.5;
 
-    // Professional Studio Lighting
-    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    
-    const keyLight = new THREE.SpotLight(0xffffff, 1.5); 
-    keyLight.position.set(10, 15, 10);
-    scene.add(keyLight);
-    
-    const fillLight = new THREE.SpotLight(0xffffff, 0.8); 
-    fillLight.position.set(-10, 10, -10);
-    scene.add(fillLight);
-    
-    const rimLight = new THREE.DirectionalLight(0xffffff, 1.0); 
-    rimLight.position.set(0, 5, 15);
-    scene.add(rimLight);
-
-    const bottomLight = new THREE.DirectionalLight(0xffffff, 0.5); 
-    bottomLight.position.set(0, -10, 0); 
-    scene.add(bottomLight);
+    // Studio Lighting
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const sun = new THREE.DirectionalLight(0xffffff, 1);
+    sun.position.set(5, 10, 7.5);
+    scene.add(sun);
     
     animate();
 }
@@ -203,136 +164,70 @@ function init3D() {
 function animate() {
     requestAnimationFrame(animate);
     if(controls) controls.update();
-    if(renderer && scene && camera) renderer.render(scene, camera);
+    renderer.render(scene, camera);
 }
 
-// ==========================================
-// LOAD YOUR GITHUB .GLB FILE
-// ==========================================
 function loadRealShoe() {
-    const loadingScreen = document.getElementById('loading-overlay');
-    const loadingSub = document.getElementById('loading-sub');
-
-    // We are now looking specifically for the single packed shoe.glb file
     gltfLoader.load('models/shoe.glb', function (gltf) {
         const shoe = gltf.scene;
-
-        // Auto-scale algorithm so the shoe always fits the screen perfectly
         const box = new THREE.Box3().setFromObject(shoe);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 8 / maxDim; 
+        const scale = 8 / Math.max(size.x, size.y, size.z); 
         shoe.scale.set(scale, scale, scale);
         shoe.position.sub(center.multiplyScalar(scale));
-        shoe.position.y += 0.5; // Hover slightly above grid
 
-        // Extract every single mesh to make them clickable
-        shoe.traverse(function (child) {
+        shoe.traverse(child => {
             if (child.isMesh) {
-                // Clone the material so changing the color of one part doesn't change the whole shoe
-                if (child.material) {
-                    child.material = child.material.clone();
-                    child.material.needsUpdate = true;
-                }
+                child.material = child.material.clone();
                 realShoeMeshes.push(child);
             }
         });
-
         scene.add(shoe);
-        loadingScreen.style.display = 'none';
-        
-    }, undefined, function (error) {
-        console.error(error);
-        loadingSub.innerHTML = "<span style='color:red;'>ERROR: Could not load models/shoe.glb</span><br><br>Make sure the file is named exactly 'shoe.glb' and uploaded to your 'models' folder.";
+        document.getElementById('loading-overlay').style.display = 'none';
+    }, undefined, function (e) {
+        document.getElementById('loading-sub').innerText = "ERROR: models/shoe.glb not found!";
     });
 }
 
-// ==========================================
-// CLICK-TO-SELECT INTERACTION (LIKE THE VIDEO)
-// ==========================================
 function onShoeClick(event) {
-    controls.autoRotate = false; // Stop spinning when user wants to edit
-
-    const container = document.getElementById("canvas-container");
-    const rect = container.getBoundingClientRect();
-    mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
-    mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+    const rect = document.getElementById("canvas-container").getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
     
     raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(realShoeMeshes, true);
+    const hits = raycaster.intersectObjects(realShoeMeshes, true);
     
-    if(intersects.length > 0) {
-        activeMesh = intersects[0].object; 
-        
-        // Dynamically update the UI to show the name of the mesh they clicked
-        let displayName = activeMesh.name || "Custom Part";
-        // Clean up messy 3D asset names
-        displayName = displayName.replace(/_/g, ' '); 
-        document.getElementById('active-part-name').innerText = displayName;
-
-        // Visual Feedback: Flash the part to confirm selection
-        if(activeMesh.material) {
-            const currentEmissive = activeMesh.material.emissive.getHex();
-            activeMesh.material.emissive.setHex(0x444444); 
-            setTimeout(() => { 
-                if(activeMesh && activeMesh.material) activeMesh.material.emissive.setHex(currentEmissive); 
-            }, 200);
-        }
+    if(hits.length > 0) {
+        activeMesh = hits[0].object;
+        document.getElementById('active-part-name').innerText = activeMesh.name || "Selected Part";
+        controls.autoRotate = false;
     }
 }
 
-// ==========================================
-// APPLY COLOR & UNDO LOGIC
-// ==========================================
-window.applyMat = function(hexColor, roughnessSetting) {
-    if(!activeMesh) {
-        alert("Please click a part of the shoe first!");
-        return;
-    }
+// --- ENGINE TOOLS ---
 
-    if(activeMesh.material) {
-        // Save current state to history array for the Undo button
-        editHistory.push({ 
-            part: activeMesh, 
-            oldColor: activeMesh.material.color.getHex(), 
-            oldRoughness: activeMesh.material.roughness 
-        });
-        
-        // Apply new styling
-        activeMesh.material.color.setHex(hexColor.replace('#', '0x'));
-        activeMesh.material.roughness = roughnessSetting;
-        activeMesh.material.metalness = 0.1; 
-        activeMesh.material.needsUpdate = true;
-    }
+window.applyMat = function(color, rough) {
+    if(!activeMesh) return alert("Select a part first!");
+    activeMesh.material.color.setHex(color.replace('#', '0x'));
+    activeMesh.material.roughness = rough;
 };
 
-window.undoLast = function() {
-    if(editHistory.length === 0) {
-        const btn = document.querySelector('.undo-btn');
-        btn.style.transform = "translateX(5px)";
-        setTimeout(() => btn.style.transform = "translateX(-5px)", 50);
-        setTimeout(() => btn.style.transform = "translateX(0)", 100);
-        return;
-    }
-    
-    const last = editHistory.pop();
-    if(last && last.part && last.part.material) {
-        last.part.material.color.setHex(last.oldColor);
-        last.part.material.roughness = last.oldRoughness;
-        last.part.material.needsUpdate = true;
-    }
+window.updatePhysic = function(prop, val) {
+    if(!activeMesh) return;
+    activeMesh.material[prop] = parseFloat(val);
+    activeMesh.material.needsUpdate = true;
+};
+
+window.tweakScale = function(axis, val) {
+    if(!activeMesh) return;
+    activeMesh.scale[axis] = parseFloat(val);
 };
 
 window.addEventListener('resize', () => {
-    if(camera && renderer) {
-        const container = document.getElementById('canvas-container');
-        if(container) {
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
-        }
-    }
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
 </body>
