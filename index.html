@@ -24,7 +24,7 @@
         .progress-bar-container { width: 200px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden;}
         #progress-bar { width: 0%; height: 100%; background: #111; transition: width 0.1s; }
 
-        /* --- INTERACTIVE ONBOARDING WIZARD --- */
+        /* INTERACTIVE ONBOARDING WIZARD */
         #onboarding {
             position: fixed; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
             z-index: 2000; display: flex; flex-direction: column; justify-content: center; align-items: center; 
@@ -68,11 +68,13 @@
         .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: 0.3s; }
         .dot.active { background: #e6a822; transform: scale(1.3); }
 
-        /* --- MAIN LAYOUT --- */
+        /* MAIN LAYOUT */
         #workspace { display: flex; width: 100vw; height: 100vh; visibility: hidden;}
         #workspace.visible { visibility: visible; }
         
-        #canvas-container { flex: 1; position: relative; background: radial-gradient(circle at center, #ffffff 0%, #e8e8e8 100%); cursor: crosshair; }
+        /* Updated Cursor for 3D Dragging */
+        #canvas-container { flex: 1; position: relative; background: radial-gradient(circle at center, #ffffff 0%, #e8e8e8 100%); cursor: grab; }
+        #canvas-container:active { cursor: grabbing; }
         
         /* RETAIL CONFIGURATOR PANEL */
         #configurator-panel { 
@@ -137,7 +139,6 @@
             background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px; 
             font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 1px; pointer-events: none;
         }
-        /* The actual input is invisible but covers the whole div */
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
         .checkout-btn { margin: auto 30px 30px 30px; padding: 18px; background: #111; color: #fff; text-align: center; font-weight: 700; text-transform: uppercase; border-radius: 30px; cursor: pointer; transition: 0.2s; letter-spacing: 1px;}
@@ -161,35 +162,25 @@
                 <div class="question-sub">Basic biomechanical data helps us optimize the chassis.</div>
                 <div class="input-row">
                     <div class="input-group"><label>Age</label><input type="number" placeholder="e.g. 28"></div>
-                    <div class="input-group"><label>Gender</label>
-                        <select><option>Male</option><option>Female</option><option>Neutral</option></select>
-                    </div>
+                    <div class="input-group"><label>Gender</label><select><option>Male</option><option>Female</option><option>Neutral</option></select></div>
                 </div>
                 <button class="btn-next" onclick="nextStep(1, 2)">Continue</button>
             </div>
-
             <div class="wizard-step" id="wiz-2">
                 <div class="question-title">What is your exact fit?</div>
                 <div class="question-sub">Precision engineering requires precise measurements.</div>
                 <div class="input-row">
                     <div class="input-group"><label>Foot Size (EU)</label><input type="number" value="42"></div>
-                    <div class="input-group"><label>Foot Width</label>
-                        <select><option>Standard (D)</option><option>Wide (EE)</option><option>Narrow (B)</option></select>
-                    </div>
+                    <div class="input-group"><label>Foot Width</label><select><option>Standard (D)</option><option>Wide (EE)</option><option>Narrow (B)</option></select></div>
                 </div>
                 <button class="btn-next" onclick="nextStep(2, 3)">Continue</button>
             </div>
-
             <div class="wizard-step" id="wiz-3">
                 <div class="question-title">How will you move?</div>
                 <div class="question-sub">Select your primary activity and gait profile.</div>
                 <div class="input-row">
-                    <div class="input-group"><label>Activity</label>
-                        <select><option>Everyday Casual</option><option>Distance Running</option><option>Athletics</option></select>
-                    </div>
-                    <div class="input-group"><label>Pronation</label>
-                        <select><option>Neutral</option><option>Overpronation</option></select>
-                    </div>
+                    <div class="input-group"><label>Activity</label><select><option>Everyday Casual</option><option>Distance Running</option><option>Athletics</option></select></div>
+                    <div class="input-group"><label>Pronation</label><select><option>Neutral</option><option>Overpronation</option></select></div>
                 </div>
                 <button class="btn-next" onclick="launchStudio()">Enter The Studio</button>
             </div>
@@ -216,7 +207,7 @@
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="margin-bottom:10px;">
                     <circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path>
                 </svg><br>
-                Rotate the camera and <b>click directly on any part of the shoe</b> to begin customizing its color and material.
+                <b>Drag to rotate the model.</b><br>Click directly on any part of the shoe to customize it.
             </div>
 
             <div id="options-panel">
@@ -296,12 +287,15 @@ function init3DEnvironment() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
+    // --- UPGRADED ORBIT CONTROLS ---
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
     controls.minDistance = 5;
     controls.maxDistance = 20;
+    controls.autoRotate = true; // Showcase Spin
+    controls.autoRotateSpeed = 1.5;
 
-    // STUDIO LIGHTING
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const keyLight = new THREE.DirectionalLight(0xffffff, 0.6);
     keyLight.position.set(10, 15, 10);
@@ -331,7 +325,6 @@ function init3DEnvironment() {
         setTimeout(() => { loadScreen.style.display = 'none'; }, 500);
     };
 
-    // LOAD MODEL
     const loader = new THREE.GLTFLoader(manager);
     loader.load('models/updatedshoe.glb', (gltf) => {
         shoe = gltf.scene;
@@ -359,8 +352,23 @@ function init3DEnvironment() {
         scene.add(shoe);
     });
 
-    // RAYCASTER: CLICK TO SELECT
+    // --- FIX FOR CLICK VS DRAG ---
+    let dragStartX = 0, dragStartY = 0;
+
     renderer.domElement.addEventListener('pointerdown', (e) => {
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+    });
+
+    renderer.domElement.addEventListener('pointerup', (e) => {
+        // Measure how far the mouse moved
+        const diffX = Math.abs(e.clientX - dragStartX);
+        const diffY = Math.abs(e.clientY - dragStartY);
+        
+        // If they dragged the mouse more than 5 pixels, they are rotating the shoe! Do NOT select a part.
+        if (diffX > 5 || diffY > 5) return; 
+
+        // If they didn't drag, it was a CLICK. Proceed to select a part.
         const rect = container.getBoundingClientRect();
         mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -371,12 +379,13 @@ function init3DEnvironment() {
         if (hits.length > 0) {
             activePart = hits[0].object;
             
-            // Flash part
+            // Stop auto-rotation so they can customize easily
+            controls.autoRotate = false;
+
             const currentEmissive = activePart.material.emissive.getHex();
             activePart.material.emissive.setHex(0x555555);
             setTimeout(() => { activePart.material.emissive.setHex(currentEmissive); }, 200);
 
-            // Update UI
             document.getElementById('instruction-text').style.display = 'none';
             document.getElementById('options-panel').style.display = 'block';
             
@@ -384,7 +393,6 @@ function init3DEnvironment() {
             displayBox.innerText = "EDITING: " + activePart.name.replace(/_/g, ' ');
             displayBox.classList.add('active-state');
             
-            // Sync Color Picker to current part color
             const currentHex = "#" + activePart.material.color.getHexString();
             document.getElementById('native-color-picker').value = currentHex;
             clearSelections();
@@ -394,7 +402,6 @@ function init3DEnvironment() {
     animate();
 }
 
-// --- APPLY MODIFICATIONS ---
 function clearSelections() {
     document.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('selected'));
     document.getElementById('gradient-btn').classList.remove('selected');
@@ -429,7 +436,7 @@ window.applyMaterial = (type, element) => {
 
 function animate() {
     requestAnimationFrame(animate);
-    if(controls) controls.update();
+    if(controls) controls.update(); // Keeps physics running smoothly
     if(renderer && scene && camera) renderer.render(scene, camera);
 }
 
