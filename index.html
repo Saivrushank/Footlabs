@@ -14,7 +14,6 @@
         :root { --gold: #e6a822; --bg: #0a0a0a; --panel: #000000; }
         body { margin: 0; overflow: hidden; background: var(--bg); color: #fff; font-family: 'Roboto', sans-serif; }
 
-        /* ONBOARDING & DIAGNOSTIC CLINIC */
         #onboarding {
             position: fixed; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
             z-index: 2000; display: flex; flex-direction: column; justify-content: center; align-items: center; 
@@ -25,7 +24,6 @@
         .logo { font-family: 'Cinzel'; font-size: 40px; letter-spacing: 15px; color: var(--gold); margin-bottom: 10px; text-align: center;}
         .subtitle { font-family: 'Share Tech Mono'; font-size: 10px; letter-spacing: 4px; color: #555; margin-bottom: 30px; }
         
-        /* FORM STYLES */
         .clinic-panel { display: block; width: 100%; max-width: 600px; animation: fadeIn 0.5s; }
         .mode-panel { display: none; width: 100%; max-width: 800px; text-align: center; animation: fadeIn 0.5s; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -37,19 +35,15 @@
             background: rgba(20,20,20,0.8); border: 1px solid #333; color: #fff; 
             padding: 12px; font-family: 'Roboto'; font-size: 14px; outline: none; transition: 0.3s;
         }
-        .input-group select:focus, .input-group input:focus { border-color: var(--gold); }
         
         .btn-main { background: transparent; border: 1px solid var(--gold); color: var(--gold); padding: 15px 40px; cursor: pointer; font-family: 'Cinzel'; letter-spacing: 2px; width: 100%; transition: 0.3s; text-transform: uppercase;}
         .btn-main:hover { background: var(--gold); color: #000; }
 
-        /* MODE CARDS */
         .cards-container { display: flex; gap: 20px; justify-content: center; margin-top: 30px; }
         .mode-card { background: #0a0a0a; border: 1px solid #333; padding: 40px 20px; cursor: pointer; width: 300px; transition: 0.3s; }
-        .mode-card:hover { border-color: var(--gold); transform: translateY(-5px); box-shadow: 0 10px 30px rgba(230,168,34,0.1); }
-        .mode-card h3 { font-family: 'Cinzel'; color: var(--gold); letter-spacing: 2px; margin-top: 0; }
-        .mode-card p { font-size: 12px; color: #888; line-height: 1.6; }
+        .mode-card:hover { border-color: var(--gold); transform: translateY(-5px); }
+        .mode-card h3 { font-family: 'Cinzel'; color: var(--gold); }
 
-        /* MAIN STUDIO UI */
         #workspace { width: 100vw; height: 100vh; display: flex; visibility: hidden; }
         #workspace.visible { visibility: visible; }
         #canvas-container { flex: 1; position: relative; }
@@ -61,9 +55,7 @@
         
         input[type="range"] { width: 100%; accent-color: var(--gold); cursor: pointer; margin-bottom: 15px; }
         input[type="color"] { background: none; border: 1px solid #333; width: 100%; height: 40px; cursor: pointer; }
-        .hint { font-size: 10px; color: #555; line-height: 1.5; margin-top: 20px; font-family: 'Share Tech Mono'; }
-
-        #system-status { position: absolute; top: 25px; left: 25px; font-family: 'Share Tech Mono'; font-size: 11px; color: var(--gold); z-index: 5; letter-spacing: 2px; pointer-events: none; }
+        #system-status { position: absolute; top: 25px; left: 25px; font-family: 'Share Tech Mono'; font-size: 11px; color: var(--gold); z-index: 5; letter-spacing: 2px; }
     </style>
 </head>
 <body>
@@ -74,70 +66,25 @@
         
         <div class="clinic-panel" id="step-1">
             <div class="form-grid">
-                <div class="input-group">
-                    <label>Age</label>
-                    <input type="number" id="usr-age" placeholder="e.g. 28" min="1" max="120">
-                </div>
+                <div class="input-group"><label>Age</label><input type="number" id="usr-age" value="25"></div>
                 <div class="input-group">
                     <label>Gender Profile</label>
-                    <select id="usr-gender">
-                        <option value="male">Male Last</option>
-                        <option value="female">Female Last</option>
-                        <option value="unisex">Unisex / Neutral</option>
-                    </select>
+                    <select id="usr-gender"><option value="male">Male</option><option value="female">Female</option></select>
                 </div>
-                <div class="input-group">
-                    <label>Foot Size (EU)</label>
-                    <input type="number" id="usr-size" value="42" step="0.5">
-                </div>
+                <div class="input-group"><label>Foot Size (EU)</label><input type="number" id="usr-size" value="42"></div>
                 <div class="input-group">
                     <label>Width Profile</label>
-                    <select id="usr-width">
-                        <option value="standard">Standard (D)</option>
-                        <option value="narrow">Narrow (B/C)</option>
-                        <option value="wide">Wide (EE)</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>Primary Occasion</label>
-                    <select id="usr-occasion">
-                        <option value="casual">Everyday Casual</option>
-                        <option value="running">Distance Running</option>
-                        <option value="lifting">Weightlifting (Flat)</option>
-                        <option value="formal">Formal Wear</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label>Arch Type</label>
-                    <select id="usr-arch">
-                        <option value="medium">Medium Arch</option>
-                        <option value="flat">Flat / Fallen Arch</option>
-                        <option value="high">High Arch</option>
-                    </select>
-                </div>
-                <div class="input-group" style="grid-column: span 2;">
-                    <label>Biomechanics (Pronation)</label>
-                    <select id="usr-pronation">
-                        <option value="neutral">Neutral (Standard Gait)</option>
-                        <option value="overpronation">Overpronation (Rolls Inward - Needs Support)</option>
-                        <option value="supination">Supination (Rolls Outward - Needs Cushioning)</option>
-                    </select>
+                    <select id="usr-width"><option value="standard">Standard</option><option value="wide">Wide</option></select>
                 </div>
             </div>
             <button class="btn-main" onclick="processClinic()">ANALYZE DATA & PROCEED</button>
         </div>
 
         <div class="mode-panel" id="step-2">
-            <h2 style="font-family:'Cinzel'; color:#fff; letter-spacing: 2px;">SELECT ENGINEERING MODE</h2>
+            <h2>SELECT ENGINEERING MODE</h2>
             <div class="cards-container">
-                <div class="mode-card" onclick="launchStudio('template')">
-                    <h3>TEMPLATE MODE</h3>
-                    <p>Load a pre-defined chassis. Modify colors, materials, and specific component dimensions instantly.</p>
-                </div>
-                <div class="mode-card" onclick="launchStudio('advanced')">
-                    <h3>ADVANCED CAD</h3>
-                    <p>Build from the last up. Subject to biomechanical safety factors and material constraints.</p>
-                </div>
+                <div class="mode-card" onclick="launchStudio('template')"><h3>TEMPLATE MODE</h3></div>
+                <div class="mode-card" onclick="launchStudio('advanced')"><h3>ADVANCED CAD</h3></div>
             </div>
         </div>
     </div>
@@ -151,124 +98,79 @@
                 <span class="label-tag">Isolated Component</span>
                 <div id="selection-out">AWAITING SELECTION</div>
             </div>
-            
             <div class="ui-section">
                 <span class="label-tag">Material Properties</span>
-                <div style="font-size:10px; color:#777; margin-bottom:5px;">Base Pigment</div>
                 <input type="color" id="color-picker" oninput="applyColor(this.value)">
             </div>
-
             <div class="ui-section">
                 <span class="label-tag">Parametric Extrusion</span>
-                <div style="font-size:10px; color:#777; margin-bottom:5px;">Y-Axis (Thickness / Height)</div>
-                <input type="range" id="scale-y" min="0.1" max="3.0" step="0.05" value="1" oninput="applyScale('y', this.value)">
-                
-                <div style="font-size:10px; color:#777; margin-bottom:5px; margin-top:15px;">X-Axis (Lateral Width)</div>
-                <input type="range" id="scale-x" min="0.1" max="2.5" step="0.05" value="1" oninput="applyScale('x', this.value)">
-            </div>
-            
-            <div class="hint">
-                > Left-click 3D geometry to isolate.<br>
-                > Adjustments apply strictly to the active mesh array.<br>
-                > Background safety monitoring is active.
+                <input type="range" id="scale-y" min="0.5" max="3.0" step="0.01" value="1" oninput="applyScale('y', this.value)">
+                <input type="range" id="scale-x" min="0.5" max="2.0" step="0.01" value="1" oninput="applyScale('x', this.value)">
             </div>
         </div>
     </div>
 
 <script>
-// --- GLOBAL MEMORY ---
-let userProfile = {};
-let currentMode = 'template';
-
-// --- 3D ENGINE VARIABLES ---
 let scene, camera, renderer, controls, shoe, activePart = null;
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let selectableParts = [];
 
-// 1. BACKGROUND ASSET LOADING (Happens while user fills form)
+// 1. LOAD THE UPDATED MODEL
 const loader = new THREE.GLTFLoader();
-loader.load('models/shoe.glb', (gltf) => {
+loader.load('models/updatedshoe.glb', (gltf) => {
     shoe = gltf.scene;
     
-    // Auto-Normalization
-    const box = new THREE.Box3().setFromObject(shoe);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    const scale = 8 / Math.max(size.x, size.y, size.z);
-    
-    shoe.scale.set(scale, scale, scale);
-    shoe.position.sub(center.multiplyScalar(scale));
-    shoe.position.y += 0.5;
-
-    // Component Isolation - Force separate identity
+    // Traversal to prepare the 112 parts
     shoe.traverse(node => {
         if(node.isMesh) {
-            node.material = node.material.clone(); 
+            // Give each part its own independent material instance immediately
+            node.material = node.material.clone();
             selectableParts.push(node); 
         }
     });
-    console.log("3D Assets Pre-Loaded and Isolated.");
+
+    const box = new THREE.Box3().setFromObject(shoe);
+    const size = box.getSize(new THREE.Vector3());
+    const scale = 8 / Math.max(size.x, size.y, size.z);
+    shoe.scale.set(scale, scale, scale);
+    console.log("Modular Engineering File Loaded.");
 });
 
-// 2. UI TRANSITION LOGIC
 function processClinic() {
-    // Capture user data
-    userProfile = {
-        age: document.getElementById('usr-age').value,
-        gender: document.getElementById('usr-gender').value,
-        size: document.getElementById('usr-size').value,
-        width: document.getElementById('usr-width').value,
-        occasion: document.getElementById('usr-occasion').value,
-        arch: document.getElementById('usr-arch').value,
-        pronation: document.getElementById('usr-pronation').value
-    };
-    
-    // Transition UI
     document.getElementById('step-1').style.display = 'none';
     document.getElementById('step-2').style.display = 'block';
 }
 
 function launchStudio(mode) {
-    currentMode = mode;
     document.getElementById('mode-display').innerText = mode.toUpperCase();
     document.getElementById('onboarding').classList.add('hidden');
     document.getElementById('workspace').classList.add('visible');
-    
     init3DEnvironment();
 }
 
-// 3. 3D STUDIO INITIALIZATION
 function init3DEnvironment() {
     const container = document.getElementById('canvas-container');
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a0a);
 
-    camera = new THREE.PerspectiveCamera(40, container.clientWidth/container.clientHeight, 0.1, 1000);
-    camera.position.set(12, 6, 12);
+    camera = new THREE.PerspectiveCamera(45, container.clientWidth/container.clientHeight, 0.1, 1000);
+    camera.position.set(10, 5, 10);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
     container.appendChild(renderer.domElement);
 
-    // Architectural Reference Grid
-    const grid = new THREE.GridHelper(40, 40, 0x333333, 0x111111);
-    grid.position.y = -2.0;
-    scene.add(grid);
-
     controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-
     scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-    const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
-    mainLight.position.set(5, 15, 5);
-    scene.add(mainLight);
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(5, 10, 7.5);
+    scene.add(light);
 
     if(shoe) scene.add(shoe);
     animate();
 
-    // PRECISION RAYCASTING (Preserved)
     renderer.domElement.addEventListener('pointerdown', (e) => {
         const rect = container.getBoundingClientRect();
         mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -279,16 +181,11 @@ function init3DEnvironment() {
         
         if (hits.length > 0) {
             activePart = hits[0].object;
-            let name = activePart.name || "Unknown Geometry";
-            document.getElementById('selection-out').innerText = name.replace(/_/g, ' ').toUpperCase();
-            
+            // Update UI with the part name
+            document.getElementById('selection-out').innerText = activePart.name.replace(/_/g, ' ').toUpperCase();
+            // Sync Sliders to the part's current scale
             document.getElementById('scale-y').value = activePart.scale.y;
             document.getElementById('scale-x').value = activePart.scale.x;
-
-            if(activePart.material.emissive) {
-                activePart.material.emissive.setHex(0x444444);
-                setTimeout(() => { if(activePart) activePart.material.emissive.setHex(0x000000); }, 150);
-            }
         }
     });
 }
@@ -296,26 +193,19 @@ function init3DEnvironment() {
 function animate() {
     requestAnimationFrame(animate);
     if(controls) controls.update();
-    if(renderer && scene && camera) renderer.render(scene, camera);
+    renderer.render(scene, camera);
 }
 
-// 4. PARAMETRIC MODIFICATION (Preserved)
 window.applyColor = (hex) => { 
     if(activePart) activePart.material.color.set(hex); 
 };
 
 window.applyScale = (axis, value) => { 
-    if(activePart) {
-        activePart.scale[axis] = parseFloat(value); 
-        
-        // --- FUTURE HOME OF SAFETY FACTOR LOGIC ---
-        // checkSafetyFactor(activePart, axis, value);
-    } 
+    if(activePart) activePart.scale[axis] = parseFloat(value); 
 };
 
 window.addEventListener('resize', () => {
     const container = document.getElementById('canvas-container');
-    if(!container || !camera || !renderer) return;
     camera.aspect = container.clientWidth / container.clientHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(container.clientWidth, container.clientHeight);
