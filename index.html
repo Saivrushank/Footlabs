@@ -64,11 +64,12 @@
         .ui-section { margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid #222; }
         .label-tag { font-size: 9px; color: var(--gold); letter-spacing: 2px; text-transform: uppercase; display: block; margin-bottom: 12px; }
         
-        #selection-out { font-family: 'Cinzel'; font-size: 18px; color: #fff; margin-bottom: 5px; }
+        #selection-out { font-family: 'Cinzel'; font-size: 20px; color: #fff; margin-bottom: 20px; }
         
-        /* MODEL GALLERY BUTTONS */
-        .gallery-btn { background: #111; border: 1px solid #333; color: #888; padding: 10px; width: 100%; margin-bottom: 8px; cursor: pointer; text-align: left; font-family: 'Share Tech Mono'; transition: 0.2s;}
-        .gallery-btn:hover, .gallery-btn.active { border-color: var(--gold); color: #fff; background: #222;}
+        /* THE NIKE-STYLE MENU */
+        .part-menu { display: flex; flex-direction: column; gap: 8px; }
+        .part-btn { background: transparent; border: 1px solid #333; color: #aaa; padding: 15px; text-align: left; font-family: 'Share Tech Mono'; font-size: 14px; cursor: pointer; transition: 0.2s; letter-spacing: 1px; text-transform: uppercase;}
+        .part-btn:hover, .part-btn.active { background: #111; border-color: var(--gold); color: var(--gold); padding-left: 25px; }
 
         /* MATERIAL BUTTONS */
         .mat-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
@@ -124,67 +125,77 @@
         <div id="sidebar">
             
             <div class="ui-section">
-                <span class="label-tag">1. Model Gallery</span>
-                <button class="gallery-btn active" onclick="loadShoeModel('models/updatedshoe.glb', this)">Model 01: Urban Runner</button>
-                <button class="gallery-btn" onclick="loadShoeModel('models/updatedshoe.glb', this)">Model 02: Court Classic</button>
-            </div>
-
-            <div class="ui-section">
-                <span class="label-tag">2. Active Component</span>
-                <div id="selection-out">SELECT A PART</div>
-                <div style="font-size: 10px; color:#777;">Click directly on the 3D model to isolate a part.</div>
+                <span class="label-tag">CUSTOMIZE YOUR CHASSIS</span>
+                <div id="selection-out">CHOOSE A PART</div>
+                
+                <div class="part-menu">
+                    <button class="part-btn" onclick="selectPartFromMenu('BODY', this)">1. Main Body</button>
+                    <button class="part-btn" onclick="selectPartFromMenu('SOLE', this)">2. Midsole & Outsole</button>
+                    <button class="part-btn" onclick="selectPartFromMenu('LACE', this)">3. Lacing System</button>
+                </div>
             </div>
             
-            <div class="ui-section" id="material-controls" style="opacity: 0.3; pointer-events: none; transition: 0.3s;">
-                <span class="label-tag">3. Base Pigment</span>
-                <input type="color" id="color-picker" value="#ffffff" oninput="applyColor(this.value)">
+            <div class="ui-section" id="material-controls" style="display: none; animation: fadeIn 0.3s;">
+                <span class="label-tag" id="current-part-label">OPTIONS</span>
                 
-                <span class="label-tag" style="margin-top: 20px;">4. Material Composition</span>
+                <div style="font-size:10px; color:#777; margin-bottom:10px;">Select Material</div>
                 <div class="mat-grid">
-                    <button class="mat-btn" onclick="applyMaterial('standard')">Standard</button>
-                    <button class="mat-btn" onclick="applyMaterial('glossy')">Glossy Poly</button>
-                    <button class="mat-btn" onclick="applyMaterial('foam')">Matte Foam</button>
+                    <button class="mat-btn" onclick="applyMaterial('standard')">Smooth Matte</button>
+                    <button class="mat-btn" onclick="applyMaterial('foam')">Textured Foam</button>
+                    <button class="mat-btn" onclick="applyMaterial('glossy')">Glossy Plastic</button>
                 </div>
+
+                <div style="font-size:10px; color:#777; margin-top:20px; margin-bottom:10px;">Select Color</div>
+                <input type="color" id="color-picker" value="#ffffff" oninput="applyColor(this.value)">
             </div>
             
             <div class="hint">
                 > Template Mode Active.<br>
-                > Geometry scaling disabled.<br>
+                > Camera auto-focus enabled.<br>
                 > Material physics rendered in real-time.
             </div>
         </div>
     </div>
 
 <script>
+// --- GLOBAL VARIABLES ---
 let scene, camera, renderer, controls, currentShoeGroup;
 let activePart = null;
-const raycaster = new THREE.Raycaster();
-const mouse = new THREE.Vector2();
 let selectableParts = [];
 const manager = new THREE.LoadingManager();
 
+// Camera Animation Variables
+let isTransitioning = false;
+let transitionProgress = 0;
+let startCamPos = new THREE.Vector3(), endCamPos = new THREE.Vector3();
+let startTarget = new THREE.Vector3(), endTarget = new THREE.Vector3();
+
+// --- UI TRANSITIONS ---
 function processClinic() {
     document.getElementById('step-1').style.display = 'none';
     document.getElementById('step-2').style.display = 'block';
 }
 
 function launchStudio(mode) {
-    if(mode !== 'template') return; // Enforcing Template mode for now
+    if(mode !== 'template') return; 
     document.getElementById('mode-display').innerText = "TEMPLATE MODE";
     document.getElementById('onboarding').classList.add('hidden');
     document.getElementById('workspace').classList.add('visible');
     
+    document.getElementById('loading-screen').style.display = 'flex';
+    document.getElementById('loading-screen').style.opacity = '1';
+    
     init3DEnvironment();
-    loadShoeModel('models/updatedshoe.glb'); // Load default
 }
 
+// --- 3D ENVIRONMENT ---
 function init3DEnvironment() {
     const container = document.getElementById('canvas-container');
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a0a);
 
     camera = new THREE.PerspectiveCamera(40, container.clientWidth/container.clientHeight, 0.1, 1000);
-    camera.position.set(10, 5, 12);
+    camera.position.set(12, 6, 12);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(container.clientWidth, container.clientHeight);
@@ -197,17 +208,19 @@ function init3DEnvironment() {
 
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
+    // Set a default target so the camera orbits around the center of the grid
+    controls.target.set(0, 0, 0);
 
-    // Advanced Lighting for Material Reflections
+    // Studio Lighting
     scene.add(new THREE.AmbientLight(0xffffff, 0.6));
     const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
     dirLight.position.set(5, 15, 5);
     scene.add(dirLight);
-    
     const fillLight = new THREE.PointLight(0xffffff, 0.5);
     fillLight.position.set(-5, 0, -5);
     scene.add(fillLight);
 
+    // Loading Progress Logic
     manager.onProgress = function ( url, itemsLoaded, itemsTotal ) {
         const percent = Math.floor((itemsLoaded / itemsTotal) * 100);
         document.getElementById('progress-bar').style.width = percent + '%';
@@ -219,69 +232,14 @@ function init3DEnvironment() {
         setTimeout(() => { loadScreen.style.display = 'none'; }, 500);
     };
 
-    // Part Selection Logic
-    renderer.domElement.addEventListener('pointerdown', (e) => {
-        const rect = container.getBoundingClientRect();
-        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-        
-        raycaster.setFromCamera(mouse, camera);
-        const hits = raycaster.intersectObjects(selectableParts, true);
-        
-        if (hits.length > 0) {
-            activePart = hits[0].object;
-            document.getElementById('selection-out').innerText = (activePart.name || "Component").replace(/_/g, ' ').toUpperCase();
-            
-            // Sync Color Picker
-            document.getElementById('color-picker').value = "#" + activePart.material.color.getHexString();
-            
-            // Unlock UI Controls
-            document.getElementById('material-controls').style.opacity = "1";
-            document.getElementById('material-controls').style.pointerEvents = "auto";
-            
-            // Flash effect to show selection
-            const currentEmissive = activePart.material.emissive.getHex();
-            activePart.material.emissive.setHex(0x333333);
-            setTimeout(() => { if(activePart) activePart.material.emissive.setHex(currentEmissive); }, 150);
-        } else {
-            // Deselect
-            activePart = null;
-            document.getElementById('selection-out').innerText = "SELECT A PART";
-            document.getElementById('material-controls').style.opacity = "0.3";
-            document.getElementById('material-controls').style.pointerEvents = "none";
-        }
-    });
-
-    animate();
-}
-
-// Loads a completely new shoe (The Template Gallery feature)
-window.loadShoeModel = (filePath, btnElement = null) => {
-    if(btnElement) {
-        document.querySelectorAll('.gallery-btn').forEach(b => b.classList.remove('active'));
-        btnElement.classList.add('active');
-    }
-
-    document.getElementById('loading-screen').style.display = 'flex';
-    document.getElementById('loading-screen').style.opacity = '1';
-
-    // Remove old shoe if it exists
-    if(currentShoeGroup) {
-        scene.remove(currentShoeGroup);
-        selectableParts = [];
-        activePart = null;
-        document.getElementById('material-controls').style.opacity = "0.3";
-        document.getElementById('material-controls').style.pointerEvents = "none";
-        document.getElementById('selection-out').innerText = "SELECT A PART";
-    }
-
+    // Load the 112-part separated model
     const loader = new THREE.GLTFLoader(manager);
-    loader.load(filePath, (gltf) => {
+    loader.load('models/updatedshoe.glb', (gltf) => {
         currentShoeGroup = gltf.scene;
         
         currentShoeGroup.traverse(node => {
             if(node.isMesh) {
-                // IMPORTANT: Ensure material is unique and supports our modifications
+                // Give every part a standard material so it reacts to our buttons
                 node.material = new THREE.MeshStandardMaterial({
                     color: node.material.color || 0xffffff,
                     roughness: 0.6,
@@ -292,7 +250,7 @@ window.loadShoeModel = (filePath, btnElement = null) => {
             }
         });
 
-        // Auto-Scale
+        // Center and scale the full shoe perfectly
         const box = new THREE.Box3().setFromObject(currentShoeGroup);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
@@ -304,15 +262,90 @@ window.loadShoeModel = (filePath, btnElement = null) => {
 
         scene.add(currentShoeGroup);
     });
+
+    animate();
+}
+
+// --- THE NIKE-STYLE MENU LOGIC ---
+window.selectPartFromMenu = (partName, btnElement) => {
+    // 1. Highlight the button
+    document.querySelectorAll('.part-btn').forEach(b => b.classList.remove('active'));
+    btnElement.classList.add('active');
+
+    // 2. Search through the 112 parts for the specific name (e.g. "SOLE")
+    activePart = selectableParts.find(part => part.name.toUpperCase().includes(partName));
+
+    if(activePart) {
+        // 3. Reveal Contextual Menu Options
+        document.getElementById('selection-out').innerText = partName.replace(/_/g, ' ');
+        document.getElementById('current-part-label').innerText = partName + " OPTIONS";
+        document.getElementById('material-controls').style.display = "block";
+        document.getElementById('color-picker').value = "#" + activePart.material.color.getHexString();
+        
+        // 4. Flash Emissive to show user exactly what is selected
+        const currentEmissive = activePart.material.emissive.getHex();
+        activePart.material.emissive.setHex(0x444444);
+        setTimeout(() => { activePart.material.emissive.setHex(currentEmissive); }, 200);
+
+        // 5. TRIGGER CAMERA AUTO-FOCUS
+        triggerCameraFocus(activePart, partName);
+
+    } else {
+        console.warn("Could not find part containing the name: " + partName);
+    }
 };
 
+// --- CINEMATIC CAMERA MATH ---
+function triggerCameraFocus(part, partName) {
+    const box = new THREE.Box3().setFromObject(part);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+    const distance = Math.max(size.x, size.y, size.z) * 2.5;
+
+    // Set target to the center of the part
+    endTarget.copy(center);
+
+    // Calculate dynamic camera position based on what part it is
+    if (partName === 'SOLE') {
+        endCamPos.set(center.x + distance, center.y + (distance * 0.2), center.z + distance);
+    } else if (partName === 'LACE') {
+        endCamPos.set(center.x, center.y + (distance * 1.5), center.z + distance);
+    } else {
+        // Default Body angle
+        endCamPos.set(center.x + distance, center.y + (distance * 0.5), center.z + distance);
+    }
+
+    startCamPos.copy(camera.position);
+    startTarget.copy(controls.target);
+    
+    transitionProgress = 0;
+    isTransitioning = true;
+}
+
+// --- ANIMATION & RENDER LOOP ---
 function animate() {
     requestAnimationFrame(animate);
+
+    // Calculate the smooth camera fly-over
+    if (isTransitioning) {
+        transitionProgress += 0.02; // Speed of the camera fly-over
+        if (transitionProgress >= 1) {
+            transitionProgress = 1;
+            isTransitioning = false;
+        }
+        
+        // Smoothstep formula for ease-in / ease-out effect
+        const t = transitionProgress * transitionProgress * (3 - 2 * transitionProgress);
+        
+        camera.position.lerpVectors(startCamPos, endCamPos, t);
+        controls.target.lerpVectors(startTarget, endTarget, t);
+    }
+
     if(controls) controls.update();
     if(renderer && scene && camera) renderer.render(scene, camera);
 }
 
-// --- TEMPLATE MODE TOOLS ---
+// --- MATERIAL CONTROLS ---
 window.applyColor = (hex) => { 
     if(activePart) activePart.material.color.set(hex); 
 };
@@ -320,16 +353,15 @@ window.applyColor = (hex) => {
 window.applyMaterial = (type) => {
     if(!activePart) return;
     
-    // Changing the physics of how light hits the part
     if (type === 'standard') {
         activePart.material.roughness = 0.6;
         activePart.material.metalness = 0.1;
     } else if (type === 'glossy') {
-        activePart.material.roughness = 0.1; // Very smooth
-        activePart.material.metalness = 0.8; // Reflective
+        activePart.material.roughness = 0.1; 
+        activePart.material.metalness = 0.8; 
     } else if (type === 'foam') {
-        activePart.material.roughness = 0.9; // Very rough
-        activePart.material.metalness = 0.0; // Flat
+        activePart.material.roughness = 0.9; 
+        activePart.material.metalness = 0.0; 
     }
 };
 
