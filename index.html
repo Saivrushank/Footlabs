@@ -24,10 +24,38 @@
         .progress-bar-container { width: 200px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden;}
         #progress-bar { width: 0%; height: 100%; background: #111; transition: width 0.1s; }
 
-        /* MAIN LAYOUT */
-        #workspace { display: flex; width: 100vw; height: 100vh; }
+        /* ONBOARDING CLINIC (Kept for your engineering flow) */
+        #onboarding {
+            position: fixed; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
+            z-index: 2000; display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            transition: opacity 0.8s, transform 0.8s; overflow-y: auto; padding: 20px; color: #fff;
+        }
+        #onboarding.hidden { opacity: 0; pointer-events: none; transform: scale(1.05); }
+        .logo { font-family: 'Helvetica Neue'; font-size: 40px; font-weight: 700; letter-spacing: 10px; color: #e6a822; margin-bottom: 10px; text-align: center;}
+        .subtitle { font-size: 10px; letter-spacing: 4px; color: #888; margin-bottom: 30px; text-transform: uppercase;}
         
-        #canvas-container { flex: 1; position: relative; background: radial-gradient(circle at center, #ffffff 0%, #e8e8e8 100%); cursor: grab; }
+        .clinic-panel { display: block; width: 100%; max-width: 600px; animation: fadeIn 0.5s; }
+        .mode-panel { display: none; width: 100%; max-width: 800px; text-align: center; animation: fadeIn 0.5s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .input-group { display: flex; flex-direction: column; }
+        .input-group label { font-size: 10px; color: #e6a822; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+        .input-group select, .input-group input { 
+            background: rgba(20,20,20,0.8); border: 1px solid #333; color: #fff; 
+            padding: 12px; font-size: 14px; outline: none; transition: 0.3s;
+        }
+        .btn-main { background: transparent; border: 1px solid #e6a822; color: #e6a822; padding: 15px 40px; cursor: pointer; letter-spacing: 2px; width: 100%; transition: 0.3s; text-transform: uppercase; font-weight: 700;}
+        .btn-main:hover { background: #e6a822; color: #000; }
+        .cards-container { display: flex; gap: 20px; justify-content: center; margin-top: 30px; }
+        .mode-card { background: #0a0a0a; border: 1px solid #333; padding: 40px 20px; cursor: pointer; width: 300px; transition: 0.3s; }
+        .mode-card:hover { border-color: #e6a822; transform: translateY(-5px); }
+
+        /* MAIN LAYOUT */
+        #workspace { display: flex; width: 100vw; height: 100vh; visibility: hidden;}
+        #workspace.visible { visibility: visible; }
+        
+        #canvas-container { flex: 1; position: relative; background: radial-gradient(circle at center, #ffffff 0%, #e8e8e8 100%); cursor: crosshair; }
         #canvas-container:active { cursor: grabbing; }
 
         /* NIKE-STYLE RIGHT PANEL */
@@ -38,7 +66,9 @@
         
         .panel-header { padding: 30px; border-bottom: 1px solid #eee; text-align: center; }
         .panel-header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
-        .panel-header p { margin: 5px 0 0 0; color: #777; font-size: 14px; }
+        .panel-header p { margin: 5px 0 15px 0; color: #777; font-size: 14px; }
+        
+        #active-part-display { background: #f5f5f5; border: 1px solid #ddd; padding: 10px; border-radius: 4px; font-size: 12px; font-weight: 700; color: #c92a2a; text-transform: uppercase;}
 
         /* ACCORDION MENU */
         .part-section { border-bottom: 1px solid #eee; }
@@ -92,9 +122,34 @@
 </head>
 <body>
 
-    <div id="loading-screen">
+    <div id="loading-screen" style="display: none;">
         <div class="loader-logo">FOOTLABS STUDIO</div>
         <div class="progress-bar-container"><div id="progress-bar"></div></div>
+    </div>
+
+    <div id="onboarding">
+        <div class="logo">FOOTLABS</div>
+        <div class="subtitle">BIOMECHANICAL ENGINEERING ENGINE</div>
+        
+        <div class="clinic-panel" id="step-1">
+            <div class="form-grid">
+                <div class="input-group"><label>Age</label><input type="number" id="usr-age" value="28"></div>
+                <div class="input-group"><label>Gender</label><select><option>Male</option><option>Female</option></select></div>
+                <div class="input-group"><label>Size (EU)</label><input type="number" value="42"></div>
+                <div class="input-group"><label>Width</label><select><option>Standard</option><option>Wide</option></select></div>
+            </div>
+            <button class="btn-main" onclick="processClinic()">PROCEED TO STUDIO</button>
+        </div>
+
+        <div class="mode-panel" id="step-2">
+            <h2 style="color:#fff; letter-spacing: 2px;">SELECT ENGINEERING MODE</h2>
+            <div class="cards-container">
+                <div class="mode-card" onclick="launchStudio('template')">
+                    <h3 style="color:#e6a822;">TEMPLATE MODE</h3>
+                    <p style="color:#888;">Select base models. Configure part-specific colors and materials (Foam, Gloss, Fabric).</p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div id="workspace">
@@ -104,18 +159,23 @@
             <div class="panel-header">
                 <h1>DESIGN YOUR OWN</h1>
                 <p>Template Model 01</p>
+                <div id="active-part-display">STATUS: Waiting for selection...</div>
             </div>
 
             <div class="part-section">
-                <div class="part-header" onclick="toggleMenu('BODY', this)">
-                    1. Upper Material <span class="arrow">+</span>
+                <div class="part-header active" onclick="toggleMenu(this)">
+                    CUSTOMIZE PART <span class="arrow">−</span>
                 </div>
-                <div class="part-options" id="menu-BODY">
+                <div class="part-options open" id="main-menu">
+                    <div style="font-size: 11px; color: #666; margin-bottom: 20px;">
+                        <i>Click directly on any part of the 3D shoe to select it, then choose your options below.</i>
+                    </div>
+                    
                     <div class="option-label">Select Material</div>
                     <div class="mat-grid">
-                        <button class="mat-btn selected" onclick="applyMaterial('standard', this)">Leather</button>
-                        <button class="mat-btn" onclick="applyMaterial('foam', this)">Suede</button>
-                        <button class="mat-btn" onclick="applyMaterial('glossy', this)">Patent</button>
+                        <button class="mat-btn selected" onclick="applyMaterial('standard', this)">Smooth Matte</button>
+                        <button class="mat-btn" onclick="applyMaterial('foam', this)">Suede/Foam</button>
+                        <button class="mat-btn" onclick="applyMaterial('glossy', this)">Glossy Poly</button>
                     </div>
 
                     <div class="option-label">Select Color</div>
@@ -125,42 +185,7 @@
                         <div class="color-swatch bg-sail" onclick="applyColor('#f4f0e6', this)"></div>
                         <div class="color-swatch bg-red" onclick="applyColor('#c92a2a', this)"></div>
                         <div class="color-swatch bg-blue" onclick="applyColor('#1864ab', this)"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="part-section">
-                <div class="part-header" onclick="toggleMenu('SOLE', this)">
-                    2. Sole System <span class="arrow">+</span>
-                </div>
-                <div class="part-options" id="menu-SOLE">
-                    <div class="option-label">Select Material</div>
-                    <div class="mat-grid">
-                        <button class="mat-btn selected" onclick="applyMaterial('standard', this)">Solid Rubber</button>
-                        <button class="mat-btn" onclick="applyMaterial('foam', this)">Matte Foam</button>
-                    </div>
-
-                    <div class="option-label">Select Color</div>
-                    <div class="color-grid">
-                        <div class="color-swatch bg-white" onclick="applyColor('#ffffff', this)"></div>
-                        <div class="color-swatch bg-black" onclick="applyColor('#1a1a1a', this)"></div>
-                        <div class="color-swatch bg-sail" onclick="applyColor('#f4f0e6', this)"></div>
                         <div class="color-swatch bg-gum" onclick="applyColor('#d0b084', this)"></div>
-                        <div class="color-swatch bg-volt" onclick="applyColor('#d0f91a', this)"></div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="part-section">
-                <div class="part-header" onclick="toggleMenu('LACE', this)">
-                    3. Laces <span class="arrow">+</span>
-                </div>
-                <div class="part-options" id="menu-LACE">
-                    <div class="option-label">Select Color</div>
-                    <div class="color-grid">
-                        <div class="color-swatch bg-white" onclick="applyColor('#ffffff', this)"></div>
-                        <div class="color-swatch bg-black" onclick="applyColor('#1a1a1a', this)"></div>
-                        <div class="color-swatch bg-red" onclick="applyColor('#c92a2a', this)"></div>
                         <div class="color-swatch bg-volt" onclick="applyColor('#d0f91a', this)"></div>
                     </div>
                 </div>
@@ -182,207 +207,11 @@ let isTransitioning = false, transitionProgress = 0;
 let startCamPos = new THREE.Vector3(), endCamPos = new THREE.Vector3();
 let startTarget = new THREE.Vector3(), endTarget = new THREE.Vector3();
 
-function init3DEnvironment() {
-    const container = document.getElementById('canvas-container');
-    scene = new THREE.Scene();
-
-    camera = new THREE.PerspectiveCamera(35, container.clientWidth/container.clientHeight, 0.1, 1000);
-    camera.position.set(12, 4, 12);
-
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(container.clientWidth, container.clientHeight);
-    renderer.outputEncoding = THREE.sRGBEncoding;
-    // Premium soft shadows
-    renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    container.appendChild(renderer.domElement);
-
-    controls = new THREE.OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    controls.minDistance = 5;
-    controls.maxDistance = 20;
-
-    // STUDIO LIGHTING SETUP (Crucial for Retail look)
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-    scene.add(ambientLight);
-
-    const keyLight = new THREE.DirectionalLight(0xffffff, 0.6);
-    keyLight.position.set(10, 15, 10);
-    keyLight.castShadow = true;
-    keyLight.shadow.mapSize.width = 2048;
-    keyLight.shadow.mapSize.height = 2048;
-    keyLight.shadow.bias = -0.001;
-    scene.add(keyLight);
-
-    const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
-    fillLight.position.set(-10, 10, -10);
-    scene.add(fillLight);
-
-    // Invisible shadow catcher floor
-    const floorGeo = new THREE.PlaneGeometry(100, 100);
-    const floorMat = new THREE.ShadowMaterial({ opacity: 0.1 });
-    const floor = new THREE.Mesh(floorGeo, floorMat);
-    floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -1;
-    floor.receiveShadow = true;
-    scene.add(floor);
-
-    // Loader
-    manager.onProgress = (url, itemsLoaded, itemsTotal) => {
-        document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%';
-    };
-    manager.onLoad = () => {
-        const loadScreen = document.getElementById('loading-screen');
-        loadScreen.style.opacity = '0';
-        setTimeout(() => { loadScreen.style.display = 'none'; }, 500);
-    };
-
-    // Load Model
-    const loader = new THREE.GLTFLoader(manager);
-    loader.load('models/updatedshoe.glb', (gltf) => {
-        shoe = gltf.scene;
-        
-        shoe.traverse(node => {
-            if(node.isMesh) {
-                node.castShadow = true;
-                node.receiveShadow = true;
-                node.material = new THREE.MeshStandardMaterial({
-                    color: node.material.color || 0xffffff,
-                    roughness: 0.6,
-                    metalness: 0.1,
-                    name: node.name + "_mat"
-                });
-                selectableParts.push(node); 
-            }
-        });
-
-        const box = new THREE.Box3().setFromObject(shoe);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const scale = 8 / Math.max(size.x, size.y, size.z);
-        
-        shoe.scale.set(scale, scale, scale);
-        shoe.position.sub(center.multiplyScalar(scale));
-        shoe.position.y += 0.5;
-
-        scene.add(shoe);
-    });
-
-    animate();
+function processClinic() {
+    document.getElementById('step-1').style.display = 'none';
+    document.getElementById('step-2').style.display = 'block';
 }
 
-// --- RETAIL UI LOGIC ---
-window.toggleMenu = (partName, headerElement) => {
-    // 1. Close all other menus and remove active states
-    document.querySelectorAll('.part-options').forEach(menu => menu.classList.remove('open'));
-    document.querySelectorAll('.part-header').forEach(header => {
-        header.classList.remove('active');
-        header.querySelector('.arrow').innerText = '+';
-    });
-
-    // 2. Open the clicked menu
-    const targetMenu = document.getElementById('menu-' + partName);
-    targetMenu.classList.add('open');
-    headerElement.classList.add('active');
-    headerElement.querySelector('.arrow').innerText = '−';
-
-    // 3. Select the 3D Part
-    activePart = selectableParts.find(part => part.name.toUpperCase().includes(partName));
-
-    if(activePart) {
-        // Highlight Part Briefly
-        const currentEmissive = activePart.material.emissive.getHex();
-        activePart.material.emissive.setHex(0x555555);
-        setTimeout(() => { activePart.material.emissive.setHex(currentEmissive); }, 200);
-
-        // Move Camera
-        triggerCameraFocus(activePart, partName);
-    }
-};
-
-window.applyColor = (hex, element) => { 
-    if(activePart) {
-        activePart.material.color.set(hex); 
-        
-        // Update UI Selected State
-        const parent = element.parentElement;
-        parent.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('selected'));
-        element.classList.add('selected');
-    }
-};
-
-window.applyMaterial = (type, element) => {
-    if(!activePart) return;
-    
-    // Update UI
-    const parent = element.parentElement;
-    parent.querySelectorAll('.mat-btn').forEach(btn => btn.classList.remove('selected'));
-    element.classList.add('selected');
-
-    // Apply Physics
-    if (type === 'standard') {
-        activePart.material.roughness = 0.6; // Leather-like
-        activePart.material.metalness = 0.1;
-    } else if (type === 'glossy') {
-        activePart.material.roughness = 0.15; // Patent/Gloss
-        activePart.material.metalness = 0.4; 
-    } else if (type === 'foam') {
-        activePart.material.roughness = 0.95; // Suede/Foam
-        activePart.material.metalness = 0.0; 
-    }
-};
-
-// --- CAMERA FOCUS ---
-function triggerCameraFocus(part, partName) {
-    const box = new THREE.Box3().setFromObject(part);
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
-    const distance = Math.max(size.x, size.y, size.z) * 2.5;
-
-    endTarget.copy(center);
-
-    if (partName === 'SOLE') {
-        endCamPos.set(center.x + distance, center.y + 1, center.z + distance);
-    } else if (partName === 'LACE') {
-        endCamPos.set(center.x, center.y + (distance * 1.5), center.z + (distance * 0.8));
-    } else {
-        endCamPos.set(center.x + distance, center.y + 3, center.z + distance);
-    }
-
-    startCamPos.copy(camera.position);
-    startTarget.copy(controls.target);
-    transitionProgress = 0;
-    isTransitioning = true;
-}
-
-function animate() {
-    requestAnimationFrame(animate);
-
-    if (isTransitioning) {
-        transitionProgress += 0.03; 
-        if (transitionProgress >= 1) {
-            transitionProgress = 1;
-            isTransitioning = false;
-        }
-        const t = transitionProgress * transitionProgress * (3 - 2 * transitionProgress);
-        camera.position.lerpVectors(startCamPos, endCamPos, t);
-        controls.target.lerpVectors(startTarget, endTarget, t);
-    }
-
-    if(controls) controls.update();
-    if(renderer && scene && camera) renderer.render(scene, camera);
-}
-
-window.addEventListener('resize', () => {
-    const container = document.getElementById('canvas-container');
-    if(!container) return;
-    camera.aspect = container.clientWidth / container.clientHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(container.clientWidth, container.clientHeight);
-});
-
-// Boot up
-window.onload = init3DEnvironment;
-</script>
-</body>
-</html>
+function launchStudio(mode) {
+    document.getElementById('onboarding').classList.add('hidden');
+    document.getElementById('workspace').classList.add('
