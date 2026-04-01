@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Footlabs | Premium Customizer</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@400;700&family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@400;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
@@ -75,10 +75,6 @@
             cursor: crosshair; z-index: 1;
         }
         
-        .snapshot-btn { position: absolute; top: 20px; left: 20px; background: #fff; border: 1px solid #ddd; border-radius: 50%; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.05); z-index: 100; transition: 0.2s;}
-        .snapshot-btn:hover { transform: scale(1.1); border-color:#111;}
-        .snapshot-btn svg { width: 24px; height: 24px; stroke: #111; stroke-width: 2; fill: none; }
-
         #configurator-panel { 
             position: absolute; top: 20px; right: 20px; bottom: 20px; width: 380px; 
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
@@ -86,9 +82,8 @@
             display: flex; flex-direction: column; z-index: 100; overflow-y: auto; border: 1px solid rgba(255,255,255,0.5);
         }
         
-        .panel-header { padding: 30px 30px 20px 30px; border-bottom: 1px solid #eee; text-align: center; position: relative;}
+        .panel-header { padding: 30px 30px 20px 30px; border-bottom: 1px solid #eee; text-align: center; }
         .panel-header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
-        .mode-badge { font-family: 'Share Tech Mono', monospace; font-size: 10px; background: #111; color: #fff; padding: 3px 8px; border-radius: 10px; margin-top: 10px; display: inline-block; letter-spacing: 1px;}
         
         #active-part-display { 
             background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 6px; 
@@ -99,7 +94,7 @@
 
         #instruction-text { padding: 40px 30px; text-align: center; color: #6c757d; font-size: 14px; line-height: 1.6; }
 
-        .tool-panel { display: none; padding: 25px 30px; animation: slideDown 0.3s ease-out; }
+        #options-panel { display: none; padding: 25px 30px; animation: slideDown 0.3s ease-out; }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
         .option-label { font-size: 12px; font-weight: 700; color: #111; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px;}
@@ -143,9 +138,7 @@
         }
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
-        .checkout-area { margin: auto 30px 30px 30px; }
-        .price-display { display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; border-top: 1px solid #eee; padding-top: 20px; margin-bottom: 20px;}
-        .checkout-btn { width: 100%; padding: 18px; background: #111; color: #fff; text-align: center; font-weight: 700; text-transform: uppercase; border-radius: 30px; cursor: pointer; transition: 0.2s; letter-spacing: 1px; border:none;}
+        .checkout-btn { margin: auto 30px 30px 30px; padding: 18px; background: #111; color: #fff; text-align: center; font-weight: 700; text-transform: uppercase; border-radius: 30px; cursor: pointer; transition: 0.2s; letter-spacing: 1px;}
         .checkout-btn:hover { background: #e6a822; color: #000; transform: translateY(-2px); }
 
     </style>
@@ -183,7 +176,7 @@
                 <div class="question-title">How will you move?</div>
                 <div class="question-sub">Select your primary activity and gait profile.</div>
                 <div class="input-row">
-                    <div class="input-group"><label>Activity</label><select id="usr-activity"><option value="casual">Everyday Casual</option><option value="running">Distance Running</option><option value="athletics">Athletics</option></select></div>
+                    <div class="input-group"><label>Activity</label><select><option>Everyday Casual</option><option>Distance Running</option><option>Athletics</option></select></div>
                     <div class="input-group"><label>Pronation</label><select><option>Neutral</option><option>Overpronation</option></select></div>
                 </div>
                 <button class="btn-next" onclick="launchStudio()">Enter The Studio</button>
@@ -200,14 +193,10 @@
     <div id="workspace">
         <div id="canvas-container"></div>
         
-        <div class="snapshot-btn" id="snapshot-btn" onclick="takeSnapshot()" title="Save Image">
-            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-        </div>
-        
         <div id="configurator-panel">
             <div class="panel-header">
                 <h1>DESIGN YOUR OWN</h1>
-                <div class="mode-badge" id="mode-badge">TEMPLATE MODE</div>
+                <p>Template Model 01</p>
                 <div id="active-part-display">Waiting for selection...</div>
             </div>
 
@@ -219,7 +208,7 @@
                 <b>Left-Click</b> directly on any part of the shoe to customize it.
             </div>
 
-            <div id="template-tools" class="tool-panel">
+            <div id="options-panel">
                 <div class="option-label">1. Material Physics</div>
                 <div class="mat-grid">
                     <button class="mat-btn selected" onclick="applyMaterial('standard', this)">Matte Leather</button>
@@ -249,32 +238,24 @@
             </div>
 
             <div style="flex-grow: 1;"></div>
-            <div class="checkout-area">
-                <div class="price-display" id="price-display">
-                    <span>Total Price</span>
-                    <span id="price-tag">$120</span>
-                </div>
-                <button class="checkout-btn">Finish Design</button>
-            </div>
+            <div class="checkout-btn">Finish Design</div>
         </div>
     </div>
 
 <script>
-// --- GLOBAL STATE ---
-let basePrice = 120;
-let partMaterials = {}; 
-
 function nextStep(current, next) {
     document.getElementById('wiz-' + current).classList.remove('active');
     document.getElementById('wiz-' + current).classList.add('exit');
     document.getElementById('wiz-' + next).classList.remove('exit');
     document.getElementById('wiz-' + next).classList.add('active');
+    
     document.getElementById('dot-' + current).classList.remove('active');
     document.getElementById('dot-' + next).classList.add('active');
 }
 
 let scene, camera, renderer, controls, shoe;
 let activePart = null;
+let hoveredPart = null;
 let selectableParts = [];
 const manager = new THREE.LoadingManager();
 const raycaster = new THREE.Raycaster();
@@ -299,7 +280,7 @@ function init3DEnvironment() {
     camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(12, 4, 12);
 
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
@@ -313,9 +294,15 @@ function init3DEnvironment() {
     controls.minDistance = 5;
     controls.maxDistance = 20;
     
+    // NEW CONTROLS: Left click does NOT rotate. Right click rotates.
     controls.enablePan = false; 
-    controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+    controls.mouseButtons = {
+        LEFT: null, // Freed up strictly for pixel-perfect clicking
+        MIDDLE: THREE.MOUSE.DOLLY,
+        RIGHT: THREE.MOUSE.ROTATE // Rotation is now mapped to right-click
+    };
     controls.maxPolarAngle = Math.PI / 2; 
+
     controls.target.set(-1.5, 0, 0);
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
@@ -358,10 +345,9 @@ function init3DEnvironment() {
                     color: node.material.color || 0xffffff,
                     roughness: 0.6,
                     metalness: 0.1,
-                    side: THREE.DoubleSide, 
+                    side: THREE.DoubleSide, // Ensures thin geometry registers clicks
                     name: node.name + "_mat"
                 });
-                partMaterials[node.name] = 0; 
                 selectableParts.push(node); 
             }
         });
@@ -379,11 +365,44 @@ function init3DEnvironment() {
         scene.add(shoe);
     });
 
+    // Prevent default right-click menu over the canvas so we can use right-click to rotate smoothly
     renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
+    // HOVER LOGIC
+    renderer.domElement.addEventListener('pointermove', (e) => {
+        if (e.buttons > 0) return; // Do not calculate hover if dragging
+
+        // RESTORED PIXEL-PERFECT MATH
+        const rect = container.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+        
+        raycaster.setFromCamera(mouse, camera);
+        const hits = raycaster.intersectObjects(selectableParts, true);
+
+        if (hoveredPart && hoveredPart !== activePart) {
+            hoveredPart.material.emissive.setHex(0x000000);
+        }
+
+        if (hits.length > 0) {
+            hoveredPart = hits[0].object;
+            container.style.cursor = 'crosshair';
+            
+            if (hoveredPart !== activePart) {
+                hoveredPart.material.emissive.setHex(0x222222);
+            }
+        } else {
+            hoveredPart = null;
+            container.style.cursor = 'default';
+        }
+    });
+
+    // SELECTION LOGIC
     renderer.domElement.addEventListener('pointerup', (e) => {
+        // ONLY trigger selection if it was a pure LEFT-CLICK
         if (e.button !== 0) return; 
 
+        // RESTORED PIXEL-PERFECT MATH (Removed dragging threshold since left-click no longer drags)
         const rect = container.getBoundingClientRect();
         mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -395,53 +414,25 @@ function init3DEnvironment() {
             if(activePart) activePart.material.emissive.setHex(0x000000);
 
             activePart = hits[0].object;
+
             activePart.material.emissive.setHex(0x555555);
             setTimeout(() => { if(activePart) activePart.material.emissive.setHex(0x333333); }, 200);
 
             document.getElementById('instruction-text').style.display = 'none';
-            document.getElementById('template-tools').style.display = 'block';
-            document.getElementById('native-color-picker').value = "#" + activePart.material.color.getHexString();
-            clearSelections();
+            document.getElementById('options-panel').style.display = 'block';
             
             const displayBox = document.getElementById('active-part-display');
             displayBox.innerText = "EDITING: " + activePart.name.replace(/_/g, ' ');
             displayBox.classList.add('active-state');
+            
+            const currentHex = "#" + activePart.material.color.getHexString();
+            document.getElementById('native-color-picker').value = currentHex;
+            clearSelections();
         }
     });
 
     animate();
 }
-
-window.takeSnapshot = () => {
-    const panel = document.getElementById('configurator-panel');
-    const snapBtn = document.getElementById('snapshot-btn');
-    
-    panel.style.display = 'none';
-    snapBtn.style.display = 'none';
-    
-    let tempPart = null;
-    if(activePart) {
-        tempPart = activePart;
-        tempPart.material.emissive.setHex(0x000000);
-    }
-
-    setTimeout(() => {
-        renderer.render(scene, camera);
-        const dataURL = renderer.domElement.toDataURL('image/png');
-        
-        const link = document.createElement('a');
-        link.download = 'Footlabs_Design.png';
-        link.href = dataURL;
-        link.click();
-        
-        panel.style.display = 'flex';
-        snapBtn.style.display = 'flex';
-        if(tempPart) {
-            activePart = tempPart;
-            activePart.material.emissive.setHex(0x333333);
-        }
-    }, 150);
-};
 
 function clearSelections() {
     document.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('selected'));
@@ -449,38 +440,31 @@ function clearSelections() {
 }
 
 window.applyCuratedColor = (hex, element) => { 
-    if(activePart) { activePart.material.color.set(hex); clearSelections(); element.classList.add('selected'); }
+    if(activePart) {
+        activePart.material.color.set(hex); 
+        clearSelections();
+        element.classList.add('selected');
+    }
 };
 
 window.applyCustomColor = (hex) => {
-    if(activePart) { activePart.material.color.set(hex); clearSelections(); document.getElementById('gradient-btn').classList.add('selected'); }
+    if(activePart) {
+        activePart.material.color.set(hex);
+        clearSelections();
+        document.getElementById('gradient-btn').classList.add('selected');
+    }
 };
 
 window.applyMaterial = (type, element) => {
     if(!activePart) return;
+    
     document.querySelectorAll('.mat-btn').forEach(btn => btn.classList.remove('selected'));
     element.classList.add('selected');
 
-    if (type === 'standard') { 
-        activePart.material.roughness = 0.6; activePart.material.metalness = 0.1; 
-        partMaterials[activePart.name] = 0; 
-    } 
-    else if (type === 'glossy') { 
-        activePart.material.roughness = 0.15; activePart.material.metalness = 0.4; 
-        partMaterials[activePart.name] = 10; 
-    } 
-    else if (type === 'foam') { 
-        activePart.material.roughness = 0.95; activePart.material.metalness = 0.0; 
-        partMaterials[activePart.name] = 15; 
-    }
-    calculatePrice();
+    if (type === 'standard') { activePart.material.roughness = 0.6; activePart.material.metalness = 0.1; } 
+    else if (type === 'glossy') { activePart.material.roughness = 0.15; activePart.material.metalness = 0.4; } 
+    else if (type === 'foam') { activePart.material.roughness = 0.95; activePart.material.metalness = 0.0; }
 };
-
-function calculatePrice() {
-    let total = basePrice;
-    for (let key in partMaterials) { total += partMaterials[key]; }
-    document.getElementById('price-tag').innerText = "$" + total;
-}
 
 function animate() {
     requestAnimationFrame(animate);
@@ -489,8 +473,6 @@ function animate() {
 }
 
 window.addEventListener('resize', () => {
-    const container = document.getElementById('canvas-container');
-    if(!container) return;
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
