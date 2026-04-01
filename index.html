@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Footlabs | Premium Customizer</title>
+    <title>Footlabs | Engineering Engine</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@400;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@400;700&family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
@@ -14,6 +14,7 @@
     <style>
         body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Helvetica Neue', 'Roboto', sans-serif; color: #111; }
 
+        /* LOADING SCREEN */
         #loading-screen {
             position: fixed; inset: 0; background: #ffffff; z-index: 3000; 
             display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -23,16 +24,15 @@
         .progress-bar-container { width: 200px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden;}
         #progress-bar { width: 0%; height: 100%; background: #111; transition: width 0.1s; }
 
+        /* ONBOARDING WIZARD */
         #onboarding {
             position: fixed; inset: 0; background: radial-gradient(circle at center, #1a1a1a 0%, #000 100%);
             z-index: 2000; display: flex; flex-direction: column; justify-content: center; align-items: center; 
             transition: opacity 0.8s, transform 0.8s; color: #fff;
         }
         #onboarding.hidden { opacity: 0; pointer-events: none; transform: scale(1.05); }
-        
         .logo-large { font-size: 36px; font-weight: 700; letter-spacing: 12px; color: #e6a822; margin-bottom: 40px; text-align: center; text-transform: uppercase;}
-        
-        .wizard-container { width: 100%; max-width: 500px; position: relative; height: 350px; overflow: hidden; }
+        .wizard-container { width: 100%; max-width: 600px; position: relative; height: 350px; overflow: hidden; }
         
         .wizard-step { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -44,7 +44,6 @@
 
         .question-title { font-size: 24px; font-weight: 300; margin-bottom: 10px; color: #fff;}
         .question-sub { font-size: 14px; color: #888; margin-bottom: 30px; line-height: 1.5;}
-
         .input-row { display: flex; gap: 15px; margin-bottom: 20px; }
         .input-group { flex: 1; display: flex; flex-direction: column; }
         .input-group label { font-size: 11px; color: #e6a822; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; font-weight: 700;}
@@ -61,11 +60,19 @@
             border-radius: 30px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(230, 168, 34, 0.2);
         }
         .btn-next:hover { background: #fff; transform: translateY(-2px); }
+        
+        /* MODE SELECTION CARDS */
+        .cards-container { display: flex; gap: 20px; justify-content: center; }
+        .mode-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); border-radius: 8px; padding: 30px 20px; cursor: pointer; width: 100%; transition: 0.3s; text-align: center;}
+        .mode-card:hover { border-color: #e6a822; transform: translateY(-5px); background: rgba(230, 168, 34, 0.1);}
+        .mode-card h3 { color: #e6a822; margin-top: 0; font-size: 16px; letter-spacing: 1px;}
+        .mode-card p { font-size: 12px; color: #aaa; line-height: 1.5; margin-bottom: 0;}
 
         .progress-dots { display: flex; justify-content: center; gap: 10px; margin-top: 30px; }
         .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: 0.3s; }
         .dot.active { background: #e6a822; transform: scale(1.3); }
 
+        /* STUDIO LAYOUT */
         #workspace { position: relative; width: 100vw; height: 100vh; visibility: hidden; overflow: hidden;}
         #workspace.visible { visibility: visible; }
         
@@ -80,40 +87,35 @@
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
             border-radius: 16px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); 
             display: flex; flex-direction: column; z-index: 100; overflow-y: auto; border: 1px solid rgba(255,255,255,0.5);
+            transition: opacity 0.3s;
         }
         
-        .panel-header { padding: 30px 30px 20px 30px; border-bottom: 1px solid #eee; text-align: center; }
+        .panel-header { padding: 30px 30px 20px 30px; border-bottom: 1px solid #eee; position: relative;}
         .panel-header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+        .mode-badge { font-family: 'Share Tech Mono', monospace; font-size: 10px; background: #111; color: #fff; padding: 3px 8px; border-radius: 10px; position: absolute; top: 32px; right: 30px; letter-spacing: 1px;}
         
         #active-part-display { 
             background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 6px; 
             font-size: 12px; font-weight: 700; color: #495057; text-transform: uppercase;
-            transition: all 0.3s ease; margin-top: 15px;
+            transition: all 0.3s ease; margin-top: 25px;
         }
         #active-part-display.active-state { background: #111; border-color: #111; color: #e6a822; }
 
         #instruction-text { padding: 40px 30px; text-align: center; color: #6c757d; font-size: 14px; line-height: 1.6; }
 
-        #options-panel { display: none; padding: 25px 30px; animation: slideDown 0.3s ease-out; }
+        .tool-panel { display: none; padding: 25px 30px; animation: slideDown 0.3s ease-out; }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
         .option-label { font-size: 12px; font-weight: 700; color: #111; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px;}
 
+        /* TEMPLATE UI */
         .mat-grid { display: flex; gap: 10px; margin-bottom: 30px; }
-        .mat-btn { 
-            flex: 1; padding: 12px 5px; background: #fff; border: 1px solid #ddd; border-radius: 6px; 
-            font-family: inherit; font-size: 11px; font-weight: 500; cursor: pointer; transition: 0.2s; text-align: center;
-        }
+        .mat-btn { flex: 1; padding: 12px 5px; background: #fff; border: 1px solid #ddd; border-radius: 6px; font-size: 11px; font-weight: 500; cursor: pointer; transition: 0.2s; text-align: center; }
         .mat-btn:hover { border-color: #111; }
         .mat-btn.selected { border-color: #111; border-width: 2px; padding: 11px 4px; font-weight: 700;}
 
-        .color-section { margin-bottom: 30px; }
-        .color-grid { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 15px;}
-        
-        .color-swatch { 
-            width: 40px; height: 40px; border-radius: 50%; cursor: pointer; 
-            border: 2px solid transparent; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: transform 0.1s;
-        }
+        .color-grid { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 30px;}
+        .color-swatch { width: 40px; height: 40px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; box-shadow: 0 2px 5px rgba(0,0,0,0.1); transition: transform 0.1s; }
         .color-swatch:hover { transform: scale(1.1); }
         .color-swatch.selected { border: 2px solid #111; transform: scale(1.1); box-shadow: 0 0 0 2px #fff inset; }
         
@@ -124,22 +126,30 @@
         .bg-blue { background: #1864ab; }
         .bg-gum { background: #d0b084; }
 
-        .custom-color-container { 
-            position: relative; width: 100%; height: 50px; border-radius: 8px; overflow: hidden;
-            background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1); border: 2px solid transparent; transition: 0.2s; cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .custom-color-container:hover { border-color: #111; transform: translateY(-2px); }
-        .custom-color-container.selected { border-color: #111; box-shadow: 0 0 0 3px rgba(17,17,17,0.2); }
-        .custom-color-text { 
-            background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px; 
-            font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 1px; pointer-events: none;
-        }
+        .custom-color-container { position: relative; width: 100%; height: 50px; border-radius: 8px; overflow: hidden; background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000); display: flex; align-items: center; justify-content: center; border: 2px solid transparent; cursor: pointer;}
+        .custom-color-container.selected { border-color: #111; }
+        .custom-color-text { background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; pointer-events: none; }
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
-        .checkout-btn { margin: auto 30px 30px 30px; padding: 18px; background: #111; color: #fff; text-align: center; font-weight: 700; text-transform: uppercase; border-radius: 30px; cursor: pointer; transition: 0.2s; letter-spacing: 1px;}
+        /* ADVANCED CAD UI */
+        .slider-group { margin-bottom: 25px; }
+        .slider-group label { display: flex; justify-content: space-between; font-size: 11px; font-family: 'Share Tech Mono'; color: #555; margin-bottom: 8px; text-transform: uppercase;}
+        input[type="range"] { width: 100%; accent-color: #111; cursor: pointer; }
+        
+        #safety-readout { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 15px; border-radius: 6px; font-family: 'Share Tech Mono'; font-size: 11px; margin-top: 30px; transition: 0.3s;}
+        #safety-readout.warning { background: #ffebee; border-color: #ffcdd2; color: #c62828; animation: pulse 1s infinite;}
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } }
+
+        /* CHECKOUT & PRICING */
+        .checkout-area { margin: auto 30px 30px 30px; }
+        .price-display { display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; border-top: 1px solid #eee; padding-top: 20px; margin-bottom: 20px;}
+        .checkout-btn { width: 100%; padding: 18px; background: #111; color: #fff; text-align: center; font-weight: 700; text-transform: uppercase; border-radius: 30px; cursor: pointer; transition: 0.2s; letter-spacing: 1px; border:none;}
         .checkout-btn:hover { background: #e6a822; color: #000; transform: translateY(-2px); }
+
+        /* SNAPSHOT ICON */
+        .snapshot-btn { position: absolute; top: 20px; left: 20px; background: #fff; border: 1px solid #ddd; border-radius: 50%; width: 45px; height: 45px; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.05); z-index: 100; transition: 0.2s;}
+        .snapshot-btn:hover { transform: scale(1.1); border-color:#111;}
+        .snapshot-btn svg { width: 20px; height: 20px; stroke: #111; stroke-width: 2; fill: none; }
 
     </style>
 </head>
@@ -176,10 +186,24 @@
                 <div class="question-title">How will you move?</div>
                 <div class="question-sub">Select your primary activity and gait profile.</div>
                 <div class="input-row">
-                    <div class="input-group"><label>Activity</label><select><option>Everyday Casual</option><option>Distance Running</option><option>Athletics</option></select></div>
+                    <div class="input-group"><label>Activity</label><select id="usr-activity"><option value="casual">Everyday Casual</option><option value="running">Distance Running</option><option value="athletics">Athletics</option></select></div>
                     <div class="input-group"><label>Pronation</label><select><option>Neutral</option><option>Overpronation</option></select></div>
                 </div>
-                <button class="btn-next" onclick="launchStudio()">Enter The Studio</button>
+                <button class="btn-next" onclick="nextStep(3, 4)">Continue</button>
+            </div>
+            <div class="wizard-step" id="wiz-4">
+                <div class="question-title">Select Engine Mode</div>
+                <div class="question-sub">Choose your level of customization complexity.</div>
+                <div class="cards-container">
+                    <div class="mode-card" onclick="launchStudio('template')">
+                        <h3>TEMPLATE MODE</h3>
+                        <p>Configure part-specific colors and physical materials.</p>
+                    </div>
+                    <div class="mode-card" onclick="launchStudio('advanced')">
+                        <h3>ADVANCED CAD</h3>
+                        <p>Unlock parametric sizing and biomechanical testing.</p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -187,16 +211,21 @@
             <div class="dot active" id="dot-1"></div>
             <div class="dot" id="dot-2"></div>
             <div class="dot" id="dot-3"></div>
+            <div class="dot" id="dot-4"></div>
         </div>
     </div>
 
     <div id="workspace">
         <div id="canvas-container"></div>
         
+        <div class="snapshot-btn" onclick="takeSnapshot()" title="Save Image">
+            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        </div>
+        
         <div id="configurator-panel">
             <div class="panel-header">
                 <h1>DESIGN YOUR OWN</h1>
-                <p>Template Model 01</p>
+                <div class="mode-badge" id="mode-badge">TEMPLATE</div>
                 <div id="active-part-display">Waiting for selection...</div>
             </div>
 
@@ -204,55 +233,88 @@
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="margin-bottom:10px;">
                     <circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path>
                 </svg><br>
-                <b>Right-Click and Drag</b> anywhere to rotate the model.<br><br>
-                <b>Left-Click</b> directly on any part of the shoe to customize it.
+                <b>Right-Click and Drag</b> anywhere to rotate.<br>
+                <b>Left-Click</b> directly on any part to customize.
             </div>
 
-            <div id="options-panel">
+            <div id="template-tools" class="tool-panel">
                 <div class="option-label">1. Material Physics</div>
                 <div class="mat-grid">
-                    <button class="mat-btn selected" onclick="applyMaterial('standard', this)">Matte Leather</button>
-                    <button class="mat-btn" onclick="applyMaterial('foam', this)">Suede / Foam</button>
+                    <button class="mat-btn selected" onclick="applyMaterial('standard', this)">Matte</button>
+                    <button class="mat-btn" onclick="applyMaterial('foam', this)">Suede/Foam</button>
                     <button class="mat-btn" onclick="applyMaterial('glossy', this)">Glossy Poly</button>
                 </div>
 
-                <div class="color-section">
-                    <div class="option-label">2. Curated Colors</div>
-                    <div class="color-grid" id="curated-colors">
-                        <div class="color-swatch bg-white" onclick="applyCuratedColor('#ffffff', this)"></div>
-                        <div class="color-swatch bg-black" onclick="applyCuratedColor('#1a1a1a', this)"></div>
-                        <div class="color-swatch bg-sail" onclick="applyCuratedColor('#f4f0e6', this)"></div>
-                        <div class="color-swatch bg-red" onclick="applyCuratedColor('#c92a2a', this)"></div>
-                        <div class="color-swatch bg-blue" onclick="applyCuratedColor('#1864ab', this)"></div>
-                        <div class="color-swatch bg-gum" onclick="applyCuratedColor('#d0b084', this)"></div>
-                    </div>
+                <div class="option-label">2. Curated Colors</div>
+                <div class="color-grid">
+                    <div class="color-swatch bg-white" onclick="applyCuratedColor('#ffffff', this)"></div>
+                    <div class="color-swatch bg-black" onclick="applyCuratedColor('#1a1a1a', this)"></div>
+                    <div class="color-swatch bg-sail" onclick="applyCuratedColor('#f4f0e6', this)"></div>
+                    <div class="color-swatch bg-red" onclick="applyCuratedColor('#c92a2a', this)"></div>
+                    <div class="color-swatch bg-blue" onclick="applyCuratedColor('#1864ab', this)"></div>
+                    <div class="color-swatch bg-gum" onclick="applyCuratedColor('#d0b084', this)"></div>
                 </div>
 
-                <div class="color-section">
-                    <div class="option-label">3. Custom Spectrum</div>
-                    <div class="custom-color-container" id="gradient-btn">
-                        <div class="custom-color-text">Open Color Wheel</div>
-                        <input type="color" id="native-color-picker" oninput="applyCustomColor(this.value)">
-                    </div>
+                <div class="option-label">3. Custom Spectrum</div>
+                <div class="custom-color-container" id="gradient-btn">
+                    <div class="custom-color-text">Open Color Wheel</div>
+                    <input type="color" id="native-color-picker" oninput="applyCustomColor(this.value)">
+                </div>
+            </div>
+
+            <div id="advanced-tools" class="tool-panel">
+                <div class="option-label">Parametric Manipulation</div>
+                
+                <div class="slider-group">
+                    <label><span>X-Axis (Width)</span> <span id="val-x">1.00</span></label>
+                    <input type="range" id="scale-x" min="0.8" max="1.5" step="0.05" value="1" oninput="applyScale('x', this.value)">
+                </div>
+                
+                <div class="slider-group">
+                    <label><span>Y-Axis (Thickness)</span> <span id="val-y">1.00</span></label>
+                    <input type="range" id="scale-y" min="0.5" max="2.0" step="0.05" value="1" oninput="applyScale('y', this.value)">
+                </div>
+
+                <div class="slider-group">
+                    <label><span>Z-Axis (Length)</span> <span id="val-z">1.00</span></label>
+                    <input type="range" id="scale-z" min="0.9" max="1.2" step="0.05" value="1" oninput="applyScale('z', this.value)">
+                </div>
+
+                <div id="safety-readout">
+                    SYS.CHECK: Biomechanics Nominal.<br>Structure within safe limits.
                 </div>
             </div>
 
             <div style="flex-grow: 1;"></div>
-            <div class="checkout-btn">Finish Design</div>
+            
+            <div class="checkout-area">
+                <div class="price-display">
+                    <span>Total</span>
+                    <span id="price-tag">$120</span>
+                </div>
+                <button class="checkout-btn">Finish Design</button>
+            </div>
         </div>
     </div>
 
 <script>
+// --- GLOBAL STATE ---
+let currentMode = 'template';
+let userActivity = 'casual';
+let basePrice = 120;
+let partMaterials = {}; // Keeps track of material upcharges
+
+// --- WIZARD LOGIC ---
 function nextStep(current, next) {
     document.getElementById('wiz-' + current).classList.remove('active');
     document.getElementById('wiz-' + current).classList.add('exit');
     document.getElementById('wiz-' + next).classList.remove('exit');
     document.getElementById('wiz-' + next).classList.add('active');
-    
     document.getElementById('dot-' + current).classList.remove('active');
     document.getElementById('dot-' + next).classList.add('active');
 }
 
+// --- 3D ENGINE VARIABLES ---
 let scene, camera, renderer, controls, shoe;
 let activePart = null;
 let hoveredPart = null;
@@ -261,7 +323,17 @@ const manager = new THREE.LoadingManager();
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-function launchStudio() {
+function launchStudio(mode) {
+    currentMode = mode;
+    userActivity = document.getElementById('usr-activity').value;
+    
+    document.getElementById('mode-badge').innerText = mode.toUpperCase() + " MODE";
+    
+    // Hide Pricing in Advanced Mode to focus on CAD
+    if(mode === 'advanced') {
+        document.querySelector('.price-display').style.display = 'none';
+    }
+
     const onboardElement = document.getElementById('onboarding');
     onboardElement.classList.add('hidden');
     setTimeout(() => { onboardElement.style.display = 'none'; }, 800); 
@@ -280,7 +352,8 @@ function init3DEnvironment() {
     camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(12, 4, 12);
 
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // CRITICAL: preserveDrawingBuffer must be true to allow the Snapshot download to work
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
@@ -294,15 +367,10 @@ function init3DEnvironment() {
     controls.minDistance = 5;
     controls.maxDistance = 20;
     
-    // NEW CONTROLS: Left click does NOT rotate. Right click rotates.
+    // Left click is selection, Right click is rotation
     controls.enablePan = false; 
-    controls.mouseButtons = {
-        LEFT: null, // Freed up strictly for pixel-perfect clicking
-        MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: THREE.MOUSE.ROTATE // Rotation is now mapped to right-click
-    };
+    controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     controls.maxPolarAngle = Math.PI / 2; 
-
     controls.target.set(-1.5, 0, 0);
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
@@ -345,9 +413,12 @@ function init3DEnvironment() {
                     color: node.material.color || 0xffffff,
                     roughness: 0.6,
                     metalness: 0.1,
-                    side: THREE.DoubleSide, // Ensures thin geometry registers clicks
+                    side: THREE.DoubleSide, 
                     name: node.name + "_mat"
                 });
+                // Initialize default scaling vector so we don't overwrite Blender's base math
+                node.userData.baseScale = node.scale.clone();
+                partMaterials[node.name] = 0; // Initialize pricing state
                 selectableParts.push(node); 
             }
         });
@@ -365,94 +436,78 @@ function init3DEnvironment() {
         scene.add(shoe);
     });
 
-    // Prevent default right-click menu over the canvas so we can use right-click to rotate smoothly
     renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
-    // HOVER LOGIC
     renderer.domElement.addEventListener('pointermove', (e) => {
-        if (e.buttons > 0) return; // Do not calculate hover if dragging
-
-        // RESTORED PIXEL-PERFECT MATH
-        const rect = container.getBoundingClientRect();
-        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-        
+        if (e.buttons > 0) return; 
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         const hits = raycaster.intersectObjects(selectableParts, true);
 
-        if (hoveredPart && hoveredPart !== activePart) {
-            hoveredPart.material.emissive.setHex(0x000000);
-        }
+        if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
 
         if (hits.length > 0) {
             hoveredPart = hits[0].object;
             container.style.cursor = 'crosshair';
-            
-            if (hoveredPart !== activePart) {
-                hoveredPart.material.emissive.setHex(0x222222);
-            }
+            if (hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x222222);
         } else {
             hoveredPart = null;
             container.style.cursor = 'default';
         }
     });
 
-    // SELECTION LOGIC
     renderer.domElement.addEventListener('pointerup', (e) => {
-        // ONLY trigger selection if it was a pure LEFT-CLICK
         if (e.button !== 0) return; 
-
-        // RESTORED PIXEL-PERFECT MATH (Removed dragging threshold since left-click no longer drags)
-        const rect = container.getBoundingClientRect();
-        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-        
+        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         const hits = raycaster.intersectObjects(selectableParts, true);
         
         if (hits.length > 0) {
             if(activePart) activePart.material.emissive.setHex(0x000000);
-
             activePart = hits[0].object;
 
             activePart.material.emissive.setHex(0x555555);
             setTimeout(() => { if(activePart) activePart.material.emissive.setHex(0x333333); }, 200);
 
             document.getElementById('instruction-text').style.display = 'none';
-            document.getElementById('options-panel').style.display = 'block';
+            
+            // Route UI based on Mode
+            if(currentMode === 'template') {
+                document.getElementById('template-tools').style.display = 'block';
+                document.getElementById('native-color-picker').value = "#" + activePart.material.color.getHexString();
+                clearSelections();
+            } else {
+                document.getElementById('advanced-tools').style.display = 'block';
+                // Sync sliders to current part scale
+                document.getElementById('scale-x').value = activePart.scale.x / activePart.userData.baseScale.x;
+                document.getElementById('scale-y').value = activePart.scale.y / activePart.userData.baseScale.y;
+                document.getElementById('scale-z').value = activePart.scale.z / activePart.userData.baseScale.z;
+                updateSliderText();
+            }
             
             const displayBox = document.getElementById('active-part-display');
             displayBox.innerText = "EDITING: " + activePart.name.replace(/_/g, ' ');
             displayBox.classList.add('active-state');
-            
-            const currentHex = "#" + activePart.material.color.getHexString();
-            document.getElementById('native-color-picker').value = currentHex;
-            clearSelections();
         }
     });
 
     animate();
 }
 
+// --- TEMPLATE LOGIC (Colors, Materials, Pricing) ---
 function clearSelections() {
     document.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('selected'));
     document.getElementById('gradient-btn').classList.remove('selected');
 }
 
 window.applyCuratedColor = (hex, element) => { 
-    if(activePart) {
-        activePart.material.color.set(hex); 
-        clearSelections();
-        element.classList.add('selected');
-    }
+    if(activePart) { activePart.material.color.set(hex); clearSelections(); element.classList.add('selected'); }
 };
 
 window.applyCustomColor = (hex) => {
-    if(activePart) {
-        activePart.material.color.set(hex);
-        clearSelections();
-        document.getElementById('gradient-btn').classList.add('selected');
-    }
+    if(activePart) { activePart.material.color.set(hex); clearSelections(); document.getElementById('gradient-btn').classList.add('selected'); }
 };
 
 window.applyMaterial = (type, element) => {
@@ -461,11 +516,95 @@ window.applyMaterial = (type, element) => {
     document.querySelectorAll('.mat-btn').forEach(btn => btn.classList.remove('selected'));
     element.classList.add('selected');
 
-    if (type === 'standard') { activePart.material.roughness = 0.6; activePart.material.metalness = 0.1; } 
-    else if (type === 'glossy') { activePart.material.roughness = 0.15; activePart.material.metalness = 0.4; } 
-    else if (type === 'foam') { activePart.material.roughness = 0.95; activePart.material.metalness = 0.0; }
+    if (type === 'standard') { 
+        activePart.material.roughness = 0.6; activePart.material.metalness = 0.1; 
+        partMaterials[activePart.name] = 0; // No upcharge
+    } 
+    else if (type === 'glossy') { 
+        activePart.material.roughness = 0.15; activePart.material.metalness = 0.4; 
+        partMaterials[activePart.name] = 10; // $10 upcharge
+    } 
+    else if (type === 'foam') { 
+        activePart.material.roughness = 0.95; activePart.material.metalness = 0.0; 
+        partMaterials[activePart.name] = 15; // $15 upcharge
+    }
+    calculatePrice();
 };
 
+function calculatePrice() {
+    let total = basePrice;
+    for (let key in partMaterials) { total += partMaterials[key]; }
+    document.getElementById('price-tag').innerText = "$" + total;
+}
+
+// --- SNAPSHOT FEATURE ---
+window.takeSnapshot = () => {
+    // Hide UI
+    const panel = document.getElementById('configurator-panel');
+    panel.style.opacity = '0';
+    
+    // De-select part to remove glowing emissive highlight
+    let tempPart = null;
+    if(activePart) {
+        tempPart = activePart;
+        tempPart.material.emissive.setHex(0x000000);
+        activePart = null; 
+    }
+
+    setTimeout(() => {
+        // Render raw frame
+        renderer.render(scene, camera);
+        const dataURL = renderer.domElement.toDataURL('image/png');
+        
+        // Trigger Download
+        const link = document.createElement('a');
+        link.download = 'Footlabs_Custom_Chassis.png';
+        link.href = dataURL;
+        link.click();
+        
+        // Restore UI
+        panel.style.opacity = '1';
+        if(tempPart) {
+            activePart = tempPart;
+            activePart.material.emissive.setHex(0x333333);
+        }
+    }, 100);
+};
+
+// --- ADVANCED CAD LOGIC (Scaling & Safety) ---
+window.applyScale = (axis, value) => {
+    if(!activePart) return;
+    
+    // Apply math based on original Blender scale
+    const newScale = parseFloat(value);
+    activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
+    
+    updateSliderText();
+    runSafetyEngine(newScale, axis);
+};
+
+function updateSliderText() {
+    document.getElementById('val-x').innerText = document.getElementById('scale-x').value;
+    document.getElementById('val-y').innerText = document.getElementById('scale-y').value;
+    document.getElementById('val-z').innerText = document.getElementById('scale-z').value;
+}
+
+function runSafetyEngine(scaleVal, axis) {
+    const readout = document.getElementById('safety-readout');
+    
+    // Safety Rule 1: Thinning the Sole while Running
+    if(activePart.name.toUpperCase().includes('SOLE') && axis === 'y' && scaleVal < 0.8 && userActivity === 'running') {
+        readout.className = "warning";
+        readout.innerHTML = "<b>STRUCTURAL ALERT:</b><br>Sole thickness too low for Distance Running impact. Risk of injury.";
+    } 
+    // Return to Normal
+    else {
+        readout.className = "";
+        readout.innerHTML = "SYS.CHECK: Biomechanics Nominal.<br>Structure within safe limits.";
+    }
+}
+
+// --- RENDER LOOP ---
 function animate() {
     requestAnimationFrame(animate);
     if(controls) controls.update(); 
