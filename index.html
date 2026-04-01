@@ -282,7 +282,6 @@ function init3DEnvironment() {
     const container = document.getElementById('canvas-container');
     scene = new THREE.Scene();
 
-    // Adjusted camera so the shoe sits naturally in the left space, away from the UI panel
     camera = new THREE.PerspectiveCamera(35, container.clientWidth/container.clientHeight, 0.1, 1000);
     camera.position.set(12, 4, 12);
 
@@ -293,14 +292,17 @@ function init3DEnvironment() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     container.appendChild(renderer.domElement);
 
+    // --- UPGRADED CAMERA CONTROLS ---
     controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.minDistance = 5;
     controls.maxDistance = 20;
-    controls.autoRotate = false; // Turned off per user request
+    
+    // Safety Limits
+    controls.enablePan = false; // Disable right-click panning so the shoe stays centered
+    controls.maxPolarAngle = Math.PI / 2; // Stop the camera from going below the floor
 
-    // Shift the center focus of the camera slightly left so the floating menu doesn't block the shoe
     controls.target.set(-1.5, 0, 0);
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
@@ -343,6 +345,7 @@ function init3DEnvironment() {
                     color: node.material.color || 0xffffff,
                     roughness: 0.6,
                     metalness: 0.1,
+                    side: THREE.DoubleSide, // CRITICAL FIX: Ensures clicks register on thin/hollow pieces
                     name: node.name + "_mat"
                 });
                 selectableParts.push(node); 
@@ -354,7 +357,6 @@ function init3DEnvironment() {
         const scale = 8 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
         
         shoe.scale.set(scale, scale, scale);
-        // We move the shoe physically to match the new left-shifted target
         shoe.position.sub(center.multiplyScalar(scale));
         shoe.position.y += 0.5;
         shoe.position.x -= 1.5; 
@@ -362,19 +364,26 @@ function init3DEnvironment() {
         scene.add(shoe);
     });
 
+    // --- REFINED SELECTION LOGIC ---
     let dragStartX = 0, dragStartY = 0;
 
+    // Block the native browser right-click menu over the canvas
+    renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
+
     renderer.domElement.addEventListener('pointerdown', (e) => {
+        if (e.button !== 0) return; // Ignore right clicks and middle clicks for selection
         dragStartX = e.clientX;
         dragStartY = e.clientY;
     });
 
     renderer.domElement.addEventListener('pointerup', (e) => {
+        if (e.button !== 0) return; // Ignore right clicks
+
         const diffX = Math.abs(e.clientX - dragStartX);
         const diffY = Math.abs(e.clientY - dragStartY);
         
-        // If they dragged the mouse, do NOT select a part.
-        if (diffX > 5 || diffY > 5) return; 
+        // Increased threshold to 10 pixels to prevent "shaky hand" accidental clicks
+        if (diffX > 10 || diffY > 10) return; 
 
         const rect = container.getBoundingClientRect();
         mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
