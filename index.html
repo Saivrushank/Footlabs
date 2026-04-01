@@ -72,9 +72,8 @@
         #canvas-container { 
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background: radial-gradient(circle at center, #ffffff 0%, #e8e8e8 100%); 
-            cursor: grab; z-index: 1;
+            cursor: crosshair; z-index: 1;
         }
-        #canvas-container:active { cursor: grabbing !important; }
         
         #configurator-panel { 
             position: absolute; top: 20px; right: 20px; bottom: 20px; width: 380px; 
@@ -168,7 +167,7 @@
                 <div class="question-title">What is your exact fit?</div>
                 <div class="question-sub">Precision engineering requires precise measurements.</div>
                 <div class="input-row">
-                    <div class="input-group"><label>Foot Size (EU)</label><input type="number" value="42"></div>
+                    <div class="input-group"><label>Foot Size (UK)</label><input type="number" value="8" step="0.5"></div>
                     <div class="input-group"><label>Foot Width</label><select><option>Standard (D)</option><option>Wide (EE)</option><option>Narrow (B)</option></select></div>
                 </div>
                 <button class="btn-next" onclick="nextStep(2, 3)">Continue</button>
@@ -205,7 +204,8 @@
                 <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="margin-bottom:10px;">
                     <circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path>
                 </svg><br>
-                <b>Drag to rotate the model.</b><br>Hover and click directly on any part of the shoe to customize it.
+                <b>Right-Click and Drag</b> anywhere to rotate the model.<br><br>
+                <b>Left-Click</b> directly on any part of the shoe to customize it.
             </div>
 
             <div id="options-panel">
@@ -262,7 +262,6 @@ const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
 function launchStudio() {
-    // Completely hide onboarding to prevent invisible DOM overlays from blocking clicks
     const onboardElement = document.getElementById('onboarding');
     onboardElement.classList.add('hidden');
     setTimeout(() => { onboardElement.style.display = 'none'; }, 800); 
@@ -282,7 +281,6 @@ function init3DEnvironment() {
     camera.position.set(12, 4, 12);
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    // FIX 1: Set Pixel Ratio for High-DPI screens to perfectly align the mouse click grid
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
@@ -296,11 +294,12 @@ function init3DEnvironment() {
     controls.minDistance = 5;
     controls.maxDistance = 20;
     
+    // NEW CONTROLS: Left click does NOT rotate. Right click rotates.
     controls.enablePan = false; 
     controls.mouseButtons = {
-        LEFT: THREE.MOUSE.ROTATE,
+        LEFT: null, // Freed up strictly for pixel-perfect clicking
         MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: null 
+        RIGHT: THREE.MOUSE.ROTATE // Rotation is now mapped to right-click
     };
     controls.maxPolarAngle = Math.PI / 2; 
 
@@ -339,7 +338,6 @@ function init3DEnvironment() {
     loader.load('models/updatedshoe.glb', (gltf) => {
         shoe = gltf.scene;
         shoe.traverse(node => {
-            // FIX 2: Explicitly filter out invisible/transparent geometry exported from Blender
             if(node.isMesh && node.visible && node.material.opacity > 0) {
                 node.castShadow = true;
                 node.receiveShadow = true;
@@ -347,7 +345,7 @@ function init3DEnvironment() {
                     color: node.material.color || 0xffffff,
                     roughness: 0.6,
                     metalness: 0.1,
-                    side: THREE.DoubleSide, 
+                    side: THREE.DoubleSide, // Ensures thin geometry registers clicks
                     name: node.name + "_mat"
                 });
                 selectableParts.push(node); 
@@ -363,21 +361,21 @@ function init3DEnvironment() {
         shoe.position.y += 0.5;
         shoe.position.x -= 1.5; 
         
-        // Force an immediate layout update for the 3D physics math
         shoe.updateMatrixWorld(true);
         scene.add(shoe);
     });
 
-    let dragStartX = 0, dragStartY = 0;
-
+    // Prevent default right-click menu over the canvas so we can use right-click to rotate smoothly
     renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
+    // HOVER LOGIC
     renderer.domElement.addEventListener('pointermove', (e) => {
-        if (e.buttons > 0) return; 
+        if (e.buttons > 0) return; // Do not calculate hover if dragging
 
-        // FIX 3: Absolute Window Math coordinates (fixes the offset/sweet-spot bug)
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        // RESTORED PIXEL-PERFECT MATH
+        const rect = container.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         
         raycaster.setFromCamera(mouse, camera);
         const hits = raycaster.intersectObjects(selectableParts, true);
@@ -388,34 +386,26 @@ function init3DEnvironment() {
 
         if (hits.length > 0) {
             hoveredPart = hits[0].object;
-            container.style.cursor = 'pointer';
+            container.style.cursor = 'crosshair';
             
             if (hoveredPart !== activePart) {
                 hoveredPart.material.emissive.setHex(0x222222);
             }
         } else {
             hoveredPart = null;
-            container.style.cursor = 'grab';
+            container.style.cursor = 'default';
         }
     });
 
-    renderer.domElement.addEventListener('pointerdown', (e) => {
-        if (e.button !== 0) return; 
-        dragStartX = e.clientX;
-        dragStartY = e.clientY;
-    });
-
+    // SELECTION LOGIC
     renderer.domElement.addEventListener('pointerup', (e) => {
+        // ONLY trigger selection if it was a pure LEFT-CLICK
         if (e.button !== 0) return; 
 
-        const diffX = Math.abs(e.clientX - dragStartX);
-        const diffY = Math.abs(e.clientY - dragStartY);
-        
-        if (diffX > 10 || diffY > 10) return; 
-
-        // Absolute Window Math coordinates (fixes the offset bug)
-        mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        // RESTORED PIXEL-PERFECT MATH (Removed dragging threshold since left-click no longer drags)
+        const rect = container.getBoundingClientRect();
+        mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+        mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         
         raycaster.setFromCamera(mouse, camera);
         const hits = raycaster.intersectObjects(selectableParts, true);
@@ -482,7 +472,6 @@ function animate() {
     if(renderer && scene && camera) renderer.render(scene, camera);
 }
 
-// Window resizing fix applied
 window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
