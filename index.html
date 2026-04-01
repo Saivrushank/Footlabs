@@ -67,18 +67,15 @@
         .panel-header h1 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
         .mode-badge { font-family: 'Share Tech Mono', monospace; font-size: 10px; background: #111; color: #fff; padding: 3px 8px; border-radius: 10px; margin-top: 10px; display: inline-block; letter-spacing: 1px;}
         
-        /* DESIGNER MODE PROGRESS HEADER - Click-through ghosting applied */
         #designer-header { display:none; margin-top:20px; border-top: 1px solid #eee; padding-top: 20px; pointer-events: none;}
         #designer-progress { display: flex; gap: 5px; margin-bottom: 10px;}
         .ds-step { flex: 1; height: 4px; background: #eee; border-radius: 2px; transition: 0.3s;}
         .ds-step.active { background: #e6a822; }
         #ds-title { font-size:12px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color: #111;}
 
-        /* Click-through ghosting applied */
         #active-part-display { background: #f8f9fa; border: 1px solid #e9ecef; padding: 15px; border-radius: 6px; font-size: 12px; font-weight: 700; color: #495057; text-transform: uppercase; transition: all 0.3s ease; margin-top: 15px; pointer-events: none;}
         #active-part-display.active-state { background: #111; border-color: #111; color: #e6a822; }
         
-        /* Click-through ghosting applied */
         #instruction-text { padding: 40px 30px; text-align: center; color: #6c757d; font-size: 14px; line-height: 1.6; pointer-events: none;}
         
         .tool-panel { display: none; padding: 25px 30px; animation: slideDown 0.3s ease-out; }
@@ -139,7 +136,6 @@
         .btn-confirm:hover { background: #111; color: #e6a822; }
         .btn-close { text-align: center; margin-top: 15px; font-size: 12px; color: #888; cursor: pointer; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;}
         .btn-close:hover { color: #111; }
-
     </style>
 </head>
 <body>
@@ -355,9 +351,6 @@ let basePrice = 120, partMaterials = {};
 let proceduralTextures = {}; 
 let designerCurrentStep = 1;
 
-let targetCameraPos = new THREE.Vector3(12, 4, 12);
-let targetControlsLook = new THREE.Vector3(-1.5, 0, 0);
-
 function showToast(message) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
@@ -390,6 +383,7 @@ function launchStudio(mode) {
     
     document.getElementById('mode-badge').innerText = mode.toUpperCase() + (mode==='designer'?" BUILD":" MODE");
     
+    // UI Routing based on selected mode
     if(mode === 'designer') {
         document.getElementById('instruction-text').style.display = 'none';
         document.getElementById('active-part-display').style.display = 'none';
@@ -419,7 +413,7 @@ function init3DEnvironment() {
     scene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.copy(targetCameraPos);
+    camera.position.set(12, 4, 12); 
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -439,7 +433,8 @@ function init3DEnvironment() {
     // PERFECTED ROTATION BINDING
     controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     controls.maxPolarAngle = Math.PI / 2; 
-    controls.target.copy(targetControlsLook);
+    controls.target.set(-1.5, 0, 0); 
+    controls.update();
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const keyLight = new THREE.DirectionalLight(0xffffff, 0.6);
@@ -586,8 +581,9 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'block'; 
         
-        targetCameraPos.set(-1.5, 0, 10); 
-        targetControlsLook.set(-1.5, -2, 0);
+        camera.position.set(-1.5, 0, 10); 
+        controls.target.set(-1.5, -2, 0);
+        controls.update();
 
         target = selectableParts.find(p => p.name.toUpperCase().includes('SOLE'));
         if(target) selectPart(target);
@@ -601,8 +597,9 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'block'; 
         document.getElementById('cad-sliders').style.display = 'none'; 
         
-        targetCameraPos.set(10, 5, 8); 
-        targetControlsLook.set(-1.5, 2, 0);
+        camera.position.set(10, 5, 8); 
+        controls.target.set(-1.5, 2, 0);
+        controls.update();
         
         target = selectableParts.find(p => p.name.toUpperCase().includes('BODY') || p.name.toUpperCase().includes('UPPER'));
         if(target) selectPart(target);
@@ -615,8 +612,9 @@ function designerStep(direction) {
         document.getElementById('ds-next').innerText = "Finish Design";
         document.getElementById('ds-upper-tools').style.display = 'none';
         
-        targetCameraPos.set(-1.5, 12, 1); 
-        targetControlsLook.set(-1.5, 0, 0);
+        camera.position.set(-1.5, 12, 1); 
+        controls.target.set(-1.5, 0, 0);
+        controls.update();
         
         target = selectableParts.find(p => p.name.toUpperCase().includes('LACE'));
         if(target) selectPart(target);
@@ -766,10 +764,9 @@ window.takeSnapshot = () => {
     }, 150);
 };
 
+// ONLY PHYSICS UPDATES HAPPEN IN ANIMATE NOW. NO CAMERA LOCKING.
 function animate() {
     requestAnimationFrame(animate);
-    camera.position.lerp(targetCameraPos, 0.05);
-    controls.target.lerp(targetControlsLook, 0.05);
     if(controls) controls.update(); 
     if(renderer && scene && camera) renderer.render(scene, camera);
 }
