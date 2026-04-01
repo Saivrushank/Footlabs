@@ -68,11 +68,10 @@
         .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: 0.3s; }
         .dot.active { background: #e6a822; transform: scale(1.3); }
 
-        /* --- UPDATED FULL-SCREEN LAYOUT --- */
+        /* FULL-SCREEN LAYOUT */
         #workspace { position: relative; width: 100vw; height: 100vh; visibility: hidden; overflow: hidden;}
         #workspace.visible { visibility: visible; }
         
-        /* Canvas is now ABSOLUTE and stretches 100% everywhere */
         #canvas-container { 
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background: radial-gradient(circle at center, #ffffff 0%, #e8e8e8 100%); 
@@ -80,7 +79,7 @@
         }
         #canvas-container:active { cursor: grabbing; }
         
-        /* Panel is now a FLOATING OVERLAY */
+        /* FLOATING OVERLAY PANEL */
         #configurator-panel { 
             position: absolute; top: 20px; right: 20px; bottom: 20px; width: 380px; 
             background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
@@ -132,7 +131,7 @@
         .bg-blue { background: #1864ab; }
         .bg-gum { background: #d0b084; }
 
-        /* THE INNOVATIVE GRADIENT COLOR PICKER */
+        /* GRADIENT COLOR PICKER */
         .custom-color-container { 
             position: relative; width: 100%; height: 50px; border-radius: 8px; overflow: hidden;
             background: linear-gradient(to right, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000);
@@ -299,8 +298,7 @@ function init3DEnvironment() {
     controls.dampingFactor = 0.05;
     controls.minDistance = 5;
     controls.maxDistance = 20;
-    controls.autoRotate = true; 
-    controls.autoRotateSpeed = 1.5;
+    controls.autoRotate = false; // Turned off per user request
 
     // Shift the center focus of the camera slightly left so the floating menu doesn't block the shoe
     controls.target.set(-1.5, 0, 0);
@@ -387,8 +385,6 @@ function init3DEnvironment() {
         
         if (hits.length > 0) {
             activePart = hits[0].object;
-            
-            controls.autoRotate = false;
 
             const currentEmissive = activePart.material.emissive.getHex();
             activePart.material.emissive.setHex(0x555555);
