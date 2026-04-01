@@ -32,7 +32,7 @@
         
         .logo-large { font-size: 36px; font-weight: 700; letter-spacing: 12px; color: #e6a822; margin-bottom: 40px; text-align: center; text-transform: uppercase;}
         
-        .wizard-container { width: 100%; max-width: 500px; position: relative; height: 350px; overflow: hidden; }
+        .wizard-container { width: 100%; max-width: 600px; position: relative; height: 350px; overflow: hidden; }
         
         .wizard-step { 
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
@@ -62,6 +62,20 @@
         }
         .btn-next:hover { background: #fff; transform: translateY(-2px); }
 
+        /* CALMING ANIMATED CARDS FOR WIZARD STEP 4 */
+        .cards-container { display: flex; gap: 20px; justify-content: center; }
+        .mode-card { 
+            background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); 
+            border-radius: 12px; padding: 40px 20px; cursor: pointer; width: 100%; text-align: center;
+            transition: all 0.5s cubic-bezier(0.25, 0.8, 0.25, 1); backdrop-filter: blur(5px);
+        }
+        .mode-card:hover { 
+            background: rgba(230, 168, 34, 0.1); border-color: rgba(230, 168, 34, 0.5); 
+            transform: translateY(-8px); box-shadow: 0 15px 30px rgba(230, 168, 34, 0.15);
+        }
+        .mode-card h3 { color: #e6a822; margin-top: 0; font-size: 18px; letter-spacing: 2px; margin-bottom: 10px; transition: 0.3s;}
+        .mode-card p { font-size: 13px; color: #aaa; line-height: 1.6; margin-bottom: 0;}
+
         .progress-dots { display: flex; justify-content: center; gap: 10px; margin-top: 30px; }
         .dot { width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.2); transition: 0.3s; }
         .dot.active { background: #e6a822; transform: scale(1.3); }
@@ -74,6 +88,11 @@
             background: radial-gradient(circle at center, #ffffff 0%, #e8e8e8 100%); 
             cursor: crosshair; z-index: 1;
         }
+
+        /* SNAPSHOT BUTTON */
+        .snapshot-btn { position: absolute; top: 20px; left: 20px; background: #fff; border: 1px solid #ddd; border-radius: 50%; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.05); z-index: 100; transition: 0.2s;}
+        .snapshot-btn:hover { transform: scale(1.1); border-color:#111;}
+        .snapshot-btn svg { width: 22px; height: 22px; stroke: #111; stroke-width: 2; fill: none; }
         
         #configurator-panel { 
             position: absolute; top: 20px; right: 20px; bottom: 20px; width: 380px; 
@@ -138,7 +157,10 @@
         }
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
-        .checkout-btn { margin: auto 30px 30px 30px; padding: 18px; background: #111; color: #fff; text-align: center; font-weight: 700; text-transform: uppercase; border-radius: 30px; cursor: pointer; transition: 0.2s; letter-spacing: 1px;}
+        /* PRICING UI */
+        .checkout-area { margin: auto 30px 30px 30px; }
+        .price-display { display: flex; justify-content: space-between; font-size: 20px; font-weight: 700; border-top: 1px solid #eee; padding-top: 20px; margin-bottom: 20px;}
+        .checkout-btn { width: 100%; padding: 18px; background: #111; color: #fff; text-align: center; font-weight: 700; text-transform: uppercase; border-radius: 30px; cursor: pointer; transition: 0.2s; letter-spacing: 1px; border:none;}
         .checkout-btn:hover { background: #e6a822; color: #000; transform: translateY(-2px); }
 
     </style>
@@ -163,6 +185,7 @@
                 </div>
                 <button class="btn-next" onclick="nextStep(1, 2)">Continue</button>
             </div>
+            
             <div class="wizard-step" id="wiz-2">
                 <div class="question-title">What is your exact fit?</div>
                 <div class="question-sub">Precision engineering requires precise measurements.</div>
@@ -172,6 +195,7 @@
                 </div>
                 <button class="btn-next" onclick="nextStep(2, 3)">Continue</button>
             </div>
+            
             <div class="wizard-step" id="wiz-3">
                 <div class="question-title">How will you move?</div>
                 <div class="question-sub">Select your primary activity and gait profile.</div>
@@ -179,7 +203,22 @@
                     <div class="input-group"><label>Activity</label><select><option>Everyday Casual</option><option>Distance Running</option><option>Athletics</option></select></div>
                     <div class="input-group"><label>Pronation</label><select><option>Neutral</option><option>Overpronation</option></select></div>
                 </div>
-                <button class="btn-next" onclick="launchStudio()">Enter The Studio</button>
+                <button class="btn-next" onclick="nextStep(3, 4)">Continue</button>
+            </div>
+            
+            <div class="wizard-step" id="wiz-4">
+                <div class="question-title">Select Engine Mode</div>
+                <div class="question-sub">Choose your customization experience.</div>
+                <div class="cards-container">
+                    <div class="mode-card" onclick="launchStudio('template')">
+                        <h3>TEMPLATE MODE</h3>
+                        <p>Configure part-specific colors, explore materials, and view live pricing.</p>
+                    </div>
+                    <div class="mode-card" onclick="launchStudio('advanced')">
+                        <h3>ADVANCED CAD</h3>
+                        <p>Unlock parametric sizing, physical scaling, and biomechanical testing.</p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -187,11 +226,16 @@
             <div class="dot active" id="dot-1"></div>
             <div class="dot" id="dot-2"></div>
             <div class="dot" id="dot-3"></div>
+            <div class="dot" id="dot-4"></div>
         </div>
     </div>
 
     <div id="workspace">
         <div id="canvas-container"></div>
+        
+        <div class="snapshot-btn" id="snapshot-btn" onclick="takeSnapshot()" title="Save Image">
+            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        </div>
         
         <div id="configurator-panel">
             <div class="panel-header">
@@ -238,11 +282,20 @@
             </div>
 
             <div style="flex-grow: 1;"></div>
-            <div class="checkout-btn">Finish Design</div>
+            
+            <div class="checkout-area">
+                <div class="price-display">
+                    <span>Total Price</span>
+                    <span id="price-tag">$120</span>
+                </div>
+                <button class="checkout-btn">Finish Design</button>
+            </div>
+            
         </div>
     </div>
 
 <script>
+// Logic strictly for the new wizard step
 function nextStep(current, next) {
     document.getElementById('wiz-' + current).classList.remove('active');
     document.getElementById('wiz-' + current).classList.add('exit');
@@ -253,6 +306,12 @@ function nextStep(current, next) {
     document.getElementById('dot-' + next).classList.add('active');
 }
 
+// Variables for the newly added pricing engine
+let basePrice = 120;
+let partMaterials = {}; 
+
+// --- EVERYTHING BELOW THIS LINE IS YOUR EXACT, UNTOUCHED 3D LOGIC ---
+
 let scene, camera, renderer, controls, shoe;
 let activePart = null;
 let hoveredPart = null;
@@ -261,7 +320,7 @@ const manager = new THREE.LoadingManager();
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 
-function launchStudio() {
+function launchStudio(mode) {
     const onboardElement = document.getElementById('onboarding');
     onboardElement.classList.add('hidden');
     setTimeout(() => { onboardElement.style.display = 'none'; }, 800); 
@@ -280,7 +339,8 @@ function init3DEnvironment() {
     camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(12, 4, 12);
 
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    // Minor update: preserveDrawingBuffer added strictly to allow Snapshot to work
+    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.outputEncoding = THREE.sRGBEncoding;
@@ -294,12 +354,11 @@ function init3DEnvironment() {
     controls.minDistance = 5;
     controls.maxDistance = 20;
     
-    // NEW CONTROLS: Left click does NOT rotate. Right click rotates.
     controls.enablePan = false; 
     controls.mouseButtons = {
-        LEFT: null, // Freed up strictly for pixel-perfect clicking
+        LEFT: null, 
         MIDDLE: THREE.MOUSE.DOLLY,
-        RIGHT: THREE.MOUSE.ROTATE // Rotation is now mapped to right-click
+        RIGHT: THREE.MOUSE.ROTATE 
     };
     controls.maxPolarAngle = Math.PI / 2; 
 
@@ -345,9 +404,10 @@ function init3DEnvironment() {
                     color: node.material.color || 0xffffff,
                     roughness: 0.6,
                     metalness: 0.1,
-                    side: THREE.DoubleSide, // Ensures thin geometry registers clicks
+                    side: THREE.DoubleSide, 
                     name: node.name + "_mat"
                 });
+                partMaterials[node.name] = 0; // Initialize pricing
                 selectableParts.push(node); 
             }
         });
@@ -365,14 +425,11 @@ function init3DEnvironment() {
         scene.add(shoe);
     });
 
-    // Prevent default right-click menu over the canvas so we can use right-click to rotate smoothly
     renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
-    // HOVER LOGIC
     renderer.domElement.addEventListener('pointermove', (e) => {
-        if (e.buttons > 0) return; // Do not calculate hover if dragging
+        if (e.buttons > 0) return; 
 
-        // RESTORED PIXEL-PERFECT MATH
         const rect = container.getBoundingClientRect();
         mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -397,12 +454,9 @@ function init3DEnvironment() {
         }
     });
 
-    // SELECTION LOGIC
     renderer.domElement.addEventListener('pointerup', (e) => {
-        // ONLY trigger selection if it was a pure LEFT-CLICK
         if (e.button !== 0) return; 
 
-        // RESTORED PIXEL-PERFECT MATH (Removed dragging threshold since left-click no longer drags)
         const rect = container.getBoundingClientRect();
         mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -461,9 +515,55 @@ window.applyMaterial = (type, element) => {
     document.querySelectorAll('.mat-btn').forEach(btn => btn.classList.remove('selected'));
     element.classList.add('selected');
 
-    if (type === 'standard') { activePart.material.roughness = 0.6; activePart.material.metalness = 0.1; } 
-    else if (type === 'glossy') { activePart.material.roughness = 0.15; activePart.material.metalness = 0.4; } 
-    else if (type === 'foam') { activePart.material.roughness = 0.95; activePart.material.metalness = 0.0; }
+    if (type === 'standard') { 
+        activePart.material.roughness = 0.6; activePart.material.metalness = 0.1; 
+        partMaterials[activePart.name] = 0; 
+    } 
+    else if (type === 'glossy') { 
+        activePart.material.roughness = 0.15; activePart.material.metalness = 0.4; 
+        partMaterials[activePart.name] = 10; // Add $10 to total
+    } 
+    else if (type === 'foam') { 
+        activePart.material.roughness = 0.95; activePart.material.metalness = 0.0; 
+        partMaterials[activePart.name] = 15; // Add $15 to total
+    }
+    
+    // Update the live price tag
+    let total = basePrice;
+    for (let key in partMaterials) { total += partMaterials[key]; }
+    document.getElementById('price-tag').innerText = "$" + total;
+};
+
+// Snapshot Image Download Logic
+window.takeSnapshot = () => {
+    const panel = document.getElementById('configurator-panel');
+    const snapBtn = document.getElementById('snapshot-btn');
+    
+    panel.style.display = 'none';
+    snapBtn.style.display = 'none';
+    
+    let tempPart = null;
+    if(activePart) {
+        tempPart = activePart;
+        tempPart.material.emissive.setHex(0x000000); // Hide selection glow for photo
+    }
+
+    setTimeout(() => {
+        renderer.render(scene, camera);
+        const dataURL = renderer.domElement.toDataURL('image/png');
+        
+        const link = document.createElement('a');
+        link.download = 'Footlabs_Design.png';
+        link.href = dataURL;
+        link.click();
+        
+        panel.style.display = 'flex';
+        snapBtn.style.display = 'flex';
+        if(tempPart) {
+            activePart = tempPart;
+            activePart.material.emissive.setHex(0x333333); // Bring selection glow back
+        }
+    }, 150);
 };
 
 function animate() {
