@@ -24,13 +24,13 @@
         .logo-large { font-size: 36px; font-weight: 700; letter-spacing: 12px; color: #e6a822; margin-bottom: 40px; text-align: center; text-transform: uppercase;}
         
         .wizard-container { width: 100%; max-width: 800px; position: relative; height: 350px; overflow: hidden; }
-        .wizard-step { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transform: translateX(50px); transition: all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1); align-items: center;}
+        .wizard-step { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transform: translateX(50px); transition: all 0.6s cubic-bezier(0.25, 0.8, 0.25, 1); align-items: center; }
         .wizard-step.active { opacity: 1; pointer-events: auto; transform: translateX(0); }
         .wizard-step.exit { opacity: 0; transform: translateX(-50px); }
         
         .question-title { font-size: 24px; font-weight: 300; margin-bottom: 10px; color: #fff; text-align: center;}
         .question-sub { font-size: 14px; color: #888; margin-bottom: 30px; line-height: 1.5; text-align: center;}
-        .input-row { display: flex; gap: 15px; margin-bottom: 20px; width: 100%; max-width: 500px;}
+        .input-row { display: flex; gap: 15px; margin-bottom: 20px; width: 100%; max-width: 500px; }
         .input-group { flex: 1; display: flex; flex-direction: column; }
         .input-group label { font-size: 11px; color: #e6a822; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; font-weight: 700;}
         .input-group input, .input-group select { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2); color: #fff; padding: 15px; font-size: 16px; border-radius: 8px; outline: none; transition: 0.3s; width: 100%; box-sizing: border-box;}
@@ -341,6 +341,7 @@
 
 <script>
 // --- GLOBAL RIGHT CLICK BLOCKER ---
+// Prevents the browser's copy/paste menu from popping up when you right-click to rotate
 document.addEventListener('contextmenu', e => {
     if(e.target.tagName !== 'INPUT') e.preventDefault();
 });
@@ -430,6 +431,7 @@ function init3DEnvironment() {
     controls.minDistance = 5;
     controls.maxDistance = 20;
     controls.enablePan = false; 
+    // RIGHT CLICK TO ROTATE ENABLED
     controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     controls.maxPolarAngle = Math.PI / 2; 
     controls.target.set(-1.5, 0, 0); 
@@ -455,84 +457,130 @@ function init3DEnvironment() {
     floor.receiveShadow = true;
     scene.add(floor);
 
-    manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
-    manager.onLoad = () => {
-        const loadScreen = document.getElementById('loading-screen');
-        loadScreen.style.opacity = '0';
-        setTimeout(() => { loadScreen.style.display = 'none'; }, 500);
-    };
-
+    // --- MODULAR VS MONOLITHIC LOADER ---
     const loader = new THREE.GLTFLoader(manager);
-    loader.load('models/updatedshoe.glb', (gltf) => {
-        shoe = gltf.scene;
-        
-        shoe.traverse(node => {
-            if(node.isMesh && node.visible && node.material.opacity > 0) {
-                node.castShadow = true;
-                node.receiveShadow = true;
-                node.material = new THREE.MeshStandardMaterial({
-                    color: node.material.color || 0xffffff,
-                    roughness: 0.6,
-                    metalness: 0.1,
-                    side: THREE.DoubleSide, 
-                    name: node.name + "_mat"
-                });
-                
-                // --- FIX 1: AI BOUNDING BOX HEIGHT DETECTION ---
-                // Even if files are named "Mesh001", this guarantees we know the physical height
-                node.geometry.computeBoundingBox();
-                let boxCenter = new THREE.Vector3();
-                node.geometry.boundingBox.getCenter(boxCenter);
-                node.userData.centerY = boxCenter.y; 
 
-                node.userData.baseScale = node.scale.clone(); 
-                node.userData.basePos = node.position.clone(); 
-                node.userData.targetY = node.position.y; 
+    if (currentMode === 'template' || currentMode === 'advanced') {
+        loader.load('models/updatedshoe.glb', (gltf) => {
+            shoe = gltf.scene;
+            shoe.traverse(node => {
+                if(node.isMesh && node.material && node.material.opacity > 0) {
+                    node.castShadow = true; node.receiveShadow = true;
+                    node.material = new THREE.MeshStandardMaterial({
+                        color: node.material.color || 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide, name: node.name + "_mat"
+                    });
+                    
+                    node.geometry.computeBoundingBox();
+                    let boxCenter = new THREE.Vector3();
+                    node.geometry.boundingBox.getCenter(boxCenter);
+                    node.userData.centerY = boxCenter.y; 
+                    
+                    node.userData.baseScale = node.scale.clone(); 
+                    node.userData.basePos = node.position.clone(); 
+                    node.userData.targetY = node.position.y; 
+                    
+                    partMaterials[node.name] = 0; 
+                    selectableParts.push(node); 
+                }
+            });
+            
+            // Assign categories based on height for monolithic file
+            selectableParts.sort((a, b) => a.userData.centerY - b.userData.centerY);
+            let totalParts = selectableParts.length;
+            selectableParts.forEach((p, index) => {
+                let n = p.name.toUpperCase();
+                if(n.includes('SOLE') || n.includes('BOTTOM')) p.userData.category = 'sole';
+                else if(n.includes('LACE') || n.includes('AGLET')) p.userData.category = 'laces';
+                else if(n.includes('UPPER') || n.includes('BODY')) p.userData.category = 'upper';
+                else {
+                    if (index < totalParts * 0.30) p.userData.category = 'sole';
+                    else if (index > totalParts * 0.85) p.userData.category = 'laces';
+                    else p.userData.category = 'upper';
+                }
+            });
 
-                partMaterials[node.name] = 0; 
-                selectableParts.push(node); 
-            }
+            const box = new THREE.Box3().setFromObject(shoe);
+            const center = box.getCenter(new THREE.Vector3());
+            const scale = 8 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
+            shoe.scale.set(scale, scale, scale);
+            shoe.position.sub(center.multiplyScalar(scale));
+            shoe.position.y += 0.5;
+            shoe.position.x -= 1.5; 
+            shoe.updateMatrixWorld(true);
+            scene.add(shoe);
         });
 
-        // Sort parts from bottom to top based on their physical center
-        selectableParts.sort((a, b) => a.userData.centerY - b.userData.centerY);
-        let totalParts = selectableParts.length;
-
-        // Assign categories based on name, or fallback to physical height (bottom 30% = sole, top 15% = laces)
-        selectableParts.forEach((p, index) => {
-            let n = p.name.toUpperCase();
-            if (n.includes('SOLE') || n.includes('BOTTOM') || n.includes('MIDSOLE')) p.userData.category = 'sole';
-            else if (n.includes('LACE') || n.includes('AGLET')) p.userData.category = 'laces';
-            else if (n.includes('UPPER') || n.includes('BODY')) p.userData.category = 'upper';
-            else {
-                if (index < totalParts * 0.30) p.userData.category = 'sole';
-                else if (index > totalParts * 0.85) p.userData.category = 'laces';
-                else p.userData.category = 'upper';
-            }
-        });
-
-        const box = new THREE.Box3().setFromObject(shoe);
-        const center = box.getCenter(new THREE.Vector3());
-        const scale = 8 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
+    } else if (currentMode === 'designer') {
         
-        shoe.scale.set(scale, scale, scale);
-        shoe.position.sub(center.multiplyScalar(scale));
-        shoe.position.y += 0.5;
-        shoe.position.x -= 1.5; 
-        shoe.updateMatrixWorld(true);
+        // MODULAR LOAD: Uses exact .gltf files from your GitHub repository
+        shoe = new THREE.Group();
         scene.add(shoe);
 
-        // --- FIX 2: STRICT SEQUENTIAL LOADING FOR DESIGNER MODE ---
-        // We do not wait for manager.onLoad. Once the shoe is in the scene, we trigger the workflow immediately.
-        if (currentMode === 'designer') {
-            selectableParts.forEach(p => p.visible = false); // Hide all
-            designerCurrentStep = 1;
-            showToast("Studio locked to Guided Workflow.");
-            executeDesignerStep(); // Fire Step 1 logic
-        }
-    });
+        const loadModularPart = (filename, category) => {
+            loader.load('models/' + filename, (gltf) => {
+                let partScene = gltf.scene;
+                partScene.traverse(node => {
+                    if(node.isMesh && node.material) {
+                        node.castShadow = true; node.receiveShadow = true;
+                        node.material = new THREE.MeshStandardMaterial({
+                            color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide, name: node.name + "_mat"
+                        });
+                        node.userData.category = category;
+                        partMaterials[node.name] = 0; 
+                        selectableParts.push(node); 
+                    }
+                });
+                shoe.add(partScene);
+            }, undefined, (e) => {
+                console.log('Optional module missing: ' + filename); 
+            });
+        };
 
-    // HOVER LOGIC 
+        // EXPLICITLY LOADING .GLTF BASED ON GITHUB SCREENSHOT
+        loadModularPart('sole 1.gltf', 'sole');
+        loadModularPart('upper.gltf', 'upper');
+        loadModularPart('laces.glb', 'laces'); // Fallback if added later
+    }
+
+    manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
+    
+    // MANAGER ONLOAD: GUARANTEES THE DROP DOES NOT HAPPEN UNTIL FILES ARE READY
+    manager.onLoad = () => {
+        if (currentMode === 'designer') {
+            const box = new THREE.Box3().setFromObject(shoe);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            
+            if (maxDim > 0 && maxDim !== Infinity) {
+                const scale = 8 / maxDim;
+                shoe.scale.set(scale, scale, scale);
+                shoe.position.sub(center.multiplyScalar(scale));
+                shoe.position.y += 0.5;
+                shoe.position.x -= 1.5; 
+                shoe.updateMatrixWorld(true);
+            }
+
+            selectableParts.forEach(p => {
+                p.userData.baseScale = p.scale.clone(); 
+                p.userData.basePos = p.position.clone(); 
+                p.userData.targetY = p.position.y; 
+                p.visible = false; 
+            });
+        }
+
+        const loadScreen = document.getElementById('loading-screen');
+        loadScreen.style.opacity = '0';
+        setTimeout(() => { 
+            loadScreen.style.display = 'none'; 
+            if(currentMode === 'designer') {
+                showToast("Studio locked to Modular Assembly.");
+                designerStep(0); 
+            }
+        }, 500);
+    };
+
+    // HOVER LOGIC
     renderer.domElement.addEventListener('pointermove', (e) => {
         if (e.buttons > 0 || currentMode === 'designer') return; 
         const rect = container.getBoundingClientRect();
@@ -540,7 +588,6 @@ function init3DEnvironment() {
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
-        // Only intersect visible parts
         const visibleParts = selectableParts.filter(p => p.visible);
         const hits = raycaster.intersectObjects(visibleParts, true);
 
@@ -597,8 +644,10 @@ function selectPart(obj) {
     displayBox.classList.add('active-state');
 }
 
-// --- DESIGNER MODE "GHOST EXTRACTION" ENGINE ---
-function executeDesignerStep() {
+// --- DESIGNER MODE "MODULAR DROPPING" ENGINE ---
+function designerStep(direction) {
+    designerCurrentStep += direction;
+    
     document.getElementById('ds-p1').classList.remove('active');
     document.getElementById('ds-p2').classList.remove('active');
     document.getElementById('ds-p3').classList.remove('active');
@@ -606,7 +655,7 @@ function executeDesignerStep() {
 
     let target = null;
     let dropOffset = 5;
-    if (shoe && shoe.scale.y) dropOffset = 5 / shoe.scale.y; // Ensure it drops from high up regardless of scale
+    if (shoe && shoe.scale.y) dropOffset = 5 / shoe.scale.y; 
 
     if(designerCurrentStep === 1) {
         document.getElementById('ds-p1').classList.add('active');
@@ -616,11 +665,11 @@ function executeDesignerStep() {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'block'; 
         
-        camera.position.set(-1.5, 2, 10); 
-        controls.target.set(-1.5, 0, 0);
+        camera.position.set(-1.5, 0, 10); 
+        controls.target.set(-1.5, -2, 0);
         controls.update();
 
-        showToast("Extracting Sole Geometry...");
+        showToast("Loading Modular Sole File...");
         
         selectableParts.forEach(p => {
             if(p.userData.category === 'sole') {
@@ -650,7 +699,7 @@ function executeDesignerStep() {
         controls.target.set(-1.5, 2, 0);
         controls.update();
         
-        showToast("Constructing Upper Chassis...");
+        showToast("Loading Modular Upper File...");
 
         selectableParts.forEach(p => {
             if(p.userData.category === 'upper') {
@@ -676,11 +725,11 @@ function executeDesignerStep() {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'none'; 
         
-        camera.position.set(-1.5, 10, 2); 
+        camera.position.set(-1.5, 12, 1); 
         controls.target.set(-1.5, 0, 0);
         controls.update();
         
-        showToast("Applying Lace System...");
+        showToast("Loading Accessory Files...");
 
         selectableParts.forEach(p => {
             if(p.userData.category === 'laces') {
@@ -695,17 +744,10 @@ function executeDesignerStep() {
         target = selectableParts.find(p => p.userData.category === 'laces');
         if(target) selectPart(target);
     }
-}
-
-function designerStep(direction) {
-    designerCurrentStep += direction;
-    if (designerCurrentStep > 3) {
+    else if (designerCurrentStep > 3) {
         showCheckout();
         designerCurrentStep = 3; 
-        return;
     }
-    if (designerCurrentStep < 1) designerCurrentStep = 1;
-    executeDesignerStep();
 }
 
 window.simulateHighTop = (type, btn) => {
@@ -847,10 +889,11 @@ window.takeSnapshot = () => {
     }, 150);
 };
 
+// --- CLEAN ANIMATION LOOP ---
 function animate() {
     requestAnimationFrame(animate);
     
-    // Smooth Gravity Dropping for pieces
+    // SMOOTH MODULAR GRAVITY DROP ONLY (No camera forcing here!)
     selectableParts.forEach(p => {
         if (p.visible && Math.abs(p.position.y - p.userData.targetY) > 0.005) {
             p.position.y += (p.userData.targetY - p.position.y) * 0.15;
