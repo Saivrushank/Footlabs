@@ -12,6 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     
     <style>
+        /* --- LOCKED BASE STYLES --- */
         body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Helvetica Neue', 'Roboto', sans-serif; color: #111; }
         #loading-screen { position: fixed; inset: 0; background: #ffffff; z-index: 3000; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease-out; pointer-events: none; }
         .loader-logo { font-size: 24px; font-weight: 700; letter-spacing: 2px; margin-bottom: 20px; }
@@ -252,7 +253,7 @@
 
                 <div class="option-label">1. Material Physics & Textures</div>
                 <div class="mat-grid">
-                    <button class="mat-btn selected" onclick="applyMaterial('standard', this)">Matte</button>
+                    <button class="mat-btn selected" onclick="applyMaterial('standard', this)">Matte Leather</button>
                     <button class="mat-btn" onclick="applyMaterial('foam', this)">Suede / Foam</button>
                     <button class="mat-btn" onclick="applyMaterial('glossy', this)">Glossy Poly</button>
                 </div>
@@ -350,12 +351,14 @@ let basePrice = 120, partMaterials = {};
 let proceduralTextures = {}; 
 let designerCurrentStep = 1;
 
-// NEW: Store Modular Groups instead of single faces
 let shoeModules = {
     sole: null,
     upper: null,
     laces: null
 };
+
+let targetCameraPos = new THREE.Vector3(12, 4, 12);
+let targetControlsLook = new THREE.Vector3(-1.5, 0, 0);
 
 function showToast(message) {
     const container = document.getElementById('toast-container');
@@ -377,7 +380,7 @@ function nextStep(current, next) {
 
 // --- 3D ENGINE ---
 let scene, camera, renderer, controls, shoe;
-let activePart = null, hoveredPart = null;
+let activePart = null, hoveredPart = null, selectableParts = [];
 const manager = new THREE.LoadingManager();
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
@@ -464,22 +467,23 @@ function init3DEnvironment() {
 
     const loader = new THREE.GLTFLoader(manager);
 
-    // --- FIX: SOLID STATE GROUPING LOAD ---
-    // Instead of pushing loose meshes, we save the ENTIRE gltf.scene as a Module Group
-    const loadModule = (filename, category) => {
+    // --- NEW: OFFSETS PARAMETER ADDED HERE ---
+    const loadModule = (filename, category, offsets = {x:0, y:0, z:0, rx:0, ry:0, rz:0}) => {
         loader.load('models/' + filename, (gltf) => {
             let moduleGroup = gltf.scene;
             moduleGroup.userData.category = category;
             moduleGroup.userData.name = category.toUpperCase();
             
-            // Base materials applied to all child meshes
+            // --- FIX: APPLYING ONSHAPE AXIS FIXES ---
+            moduleGroup.rotation.set(offsets.rx, offsets.ry, offsets.rz);
+            moduleGroup.position.set(offsets.x, offsets.y, offsets.z);
+            
             moduleGroup.traverse(node => {
                 if(node.isMesh) {
                     node.castShadow = true; node.receiveShadow = true;
                     node.material = new THREE.MeshStandardMaterial({
                         color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
                     });
-                    // Link the child mesh back to its parent group for raycasting
                     node.userData.parentModule = moduleGroup; 
                 }
             });
@@ -494,18 +498,19 @@ function init3DEnvironment() {
     };
 
     if (currentMode === 'template' || currentMode === 'advanced') {
-        // If monolithic, we just load the main shoe as one big "Module"
-        loadModule('updatedshoe.glb', 'sole'); // Treating the whole shoe as the 'sole' group for simplicity in older modes
+        loadModule('updatedshoe.glb', 'sole'); 
     } else if (currentMode === 'designer') {
+        // --- FIX: ONSHAPE Z-UP REORIENTATION ---
+        // Setting rx to -90 degrees (Math.PI / -2) to stand the upper up.
+        // Change to Math.PI / 2 if it flips upside down instead.
         loadModule('sole 1.gltf', 'sole');
-        loadModule('upper.gltf', 'upper');
+        loadModule('upper.gltf', 'upper', {x: 0, y: 0, z: 0, rx: -Math.PI / 2, ry: 0, rz: 0});
         loadModule('laces.glb', 'laces'); 
     }
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
     manager.onLoad = () => {
-        // 1. Center and Scale the master Shoe Group
         const box = new THREE.Box3().setFromObject(shoe);
         const center = box.getCenter(new THREE.Vector3());
         const size = box.getSize(new THREE.Vector3());
@@ -520,7 +525,6 @@ function init3DEnvironment() {
             shoe.updateMatrixWorld(true);
         }
 
-        // 2. Lock coordinates for animation AFTER scaling
         Object.values(shoeModules).forEach(mod => {
             if (mod) {
                 mod.userData.baseScale = mod.scale.clone(); 
@@ -541,7 +545,6 @@ function init3DEnvironment() {
         }, 500);
     };
 
-    // --- FIX: RAYCASTING ONLY THE MODULE GROUPS ---
     renderer.domElement.addEventListener('pointermove', (e) => {
         if (e.buttons > 0 || currentMode === 'designer') return; 
         const rect = container.getBoundingClientRect();
@@ -552,13 +555,12 @@ function init3DEnvironment() {
         const activeModules = Object.values(shoeModules).filter(m => m && m.visible);
         const hits = raycaster.intersectObjects(activeModules, true);
 
-        // Remove emissive glow from old hovered part
         if (hoveredPart && hoveredPart !== activePart) {
             hoveredPart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
         }
 
         if (hits.length > 0) {
-            hoveredPart = hits[0].object.userData.parentModule; // Get the whole group!
+            hoveredPart = hits[0].object.userData.parentModule; 
             container.style.cursor = 'crosshair';
             if (hoveredPart !== activePart) {
                 hoveredPart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x222222); });
@@ -585,21 +587,18 @@ function init3DEnvironment() {
     animate();
 }
 
-// --- FIX: APPLYING CHANGES TO THE ENTIRE GROUP ---
 function selectPart(moduleGroup) {
     if(activePart) {
         activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
     }
     activePart = moduleGroup;
     
-    // Make the whole group flash
     activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x555555); });
     setTimeout(() => { if(activePart) activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x333333); }); }, 200);
 
     document.getElementById('instruction-text').style.display = 'none';
     document.getElementById('shared-tools').style.display = 'block';
     
-    // Get color from first mesh in group
     let firstMesh = null;
     activePart.traverse(n => { if(n.isMesh && !firstMesh) firstMesh = n; });
     if (firstMesh) document.getElementById('native-color-picker').value = "#" + firstMesh.material.color.getHexString();
@@ -620,7 +619,6 @@ function selectPart(moduleGroup) {
     displayBox.classList.add('active-state');
 }
 
-// --- DESIGNER MODE ---
 function designerStep(direction) {
     designerCurrentStep += direction;
     
@@ -699,7 +697,6 @@ function designerStep(direction) {
             shoeModules.laces.userData.targetY = shoeModules.laces.userData.basePos.y;
             selectPart(shoeModules.laces);
         } else {
-             // If no laces exist, just reselect the upper so they can color it
              if (shoeModules.upper) selectPart(shoeModules.upper);
         }
     }
@@ -735,7 +732,6 @@ window.applyScale = (axis, value) => {
         showToast("Chassis realigning to sync with new sole volume.");
         const delta = (newScale - 1) * 0.4; 
         
-        // Push the upper up so it doesn't clip
         if (shoeModules.upper) shoeModules.upper.userData.targetY = shoeModules.upper.userData.basePos.y + delta;
         if (shoeModules.laces) shoeModules.laces.userData.targetY = shoeModules.laces.userData.basePos.y + delta;
     }
@@ -760,14 +756,12 @@ function runSafetyEngine(scaleVal, axis) {
     readout.className = ""; readout.innerHTML = "SYS.CHECK: Biomechanics Nominal.<br>Structure within safe limits.";
 }
 
-// --- GROUP MATERIAL APPLICATION ---
 function clearColorSelections() {
     document.querySelectorAll('.color-swatch').forEach(sw => sw.classList.remove('selected'));
     document.getElementById('gradient-btn').classList.remove('selected');
 }
 window.applyCuratedColor = (hex, element) => { 
     if(activePart) { 
-        // Apply to all child meshes in group
         activePart.traverse(n => { if(n.isMesh) n.material.color.set(hex); });
         clearColorSelections(); element.classList.add('selected'); 
     }
@@ -856,7 +850,6 @@ window.takeSnapshot = () => {
     const snapBtn = document.getElementById('snapshot-btn');
     panel.style.display = 'none'; snapBtn.style.display = 'none';
     
-    // Hide glow
     if(activePart) activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
 
     setTimeout(() => {
@@ -865,7 +858,6 @@ window.takeSnapshot = () => {
         link.download = 'Footlabs_Design.png'; link.href = renderer.domElement.toDataURL('image/png'); link.click();
         panel.style.display = 'flex'; snapBtn.style.display = 'flex';
         
-        // Restore glow
         if(activePart) activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x333333); });
     }, 150);
 };
@@ -873,7 +865,6 @@ window.takeSnapshot = () => {
 function animate() {
     requestAnimationFrame(animate);
     
-    // ANIMATE THE ENTIRE MODULE GROUP, NOT INDIVIDUAL FACES
     Object.values(shoeModules).forEach(mod => {
         if (mod && mod.visible && Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
             mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
