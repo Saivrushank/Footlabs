@@ -110,7 +110,7 @@
         input[type="range"] { width: 100%; accent-color: #111; cursor: pointer; }
         #safety-readout { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 15px; border-radius: 6px; font-family: 'Share Tech Mono'; font-size: 11px; margin-top: 30px; transition: 0.3s; pointer-events: none;}
         #safety-readout.warning { background: #ffebee; border-color: #ffcdd2; color: #c62828; animation: pulse 1s infinite;}
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); 0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } }
 
         .ds-controls { display: flex; justify-content: space-between; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;}
         .ds-btn { padding: 12px 20px; border: 1px solid #111; background: transparent; border-radius: 30px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s;}
@@ -187,15 +187,15 @@
                 <div class="cards-container">
                     <div class="mode-card" onclick="launchStudio('template')">
                         <h3>TEMPLATE</h3>
-                        <p>Configure colors & materials on predefined models.</p>
+                        <p>Configure part-specific colors and materials.</p>
                     </div>
                     <div class="mode-card" onclick="launchStudio('advanced')">
                         <h3>ADVANCED CAD</h3>
-                        <p>Unlock parametric sizing and surface details.</p>
+                        <p>Unlock parametric sizing and collision logic.</p>
                     </div>
                     <div class="mode-card" onclick="launchStudio('designer')">
-                        <h3>MODULAR BUILD</h3>
-                        <p>Guided assembly using your custom Onshape modules.</p>
+                        <h3>DESIGNER</h3>
+                        <p>Guided step-by-step bespoke chassis build.</p>
                     </div>
                 </div>
             </div>
@@ -467,23 +467,25 @@ function init3DEnvironment() {
 
     const loader = new THREE.GLTFLoader(manager);
 
-    // --- NEW: OFFSETS PARAMETER ADDED HERE ---
+    // --- FIX 1: SOLID STATE GROUPING LOADER (REPAIRED) ---
     const loadModule = (filename, category, offsets = {x:0, y:0, z:0, rx:0, ry:0, rz:0}) => {
         loader.load('models/' + filename, (gltf) => {
             let moduleGroup = gltf.scene;
             moduleGroup.userData.category = category;
             moduleGroup.userData.name = category.toUpperCase();
             
-            // --- FIX: APPLYING ONSHAPE AXIS FIXES ---
+            // Apply fixes before adding to scene
             moduleGroup.rotation.set(offsets.rx, offsets.ry, offsets.rz);
             moduleGroup.position.set(offsets.x, offsets.y, offsets.z);
             
+            // Apply material to all child meshes uniformly
             moduleGroup.traverse(node => {
                 if(node.isMesh) {
                     node.castShadow = true; node.receiveShadow = true;
                     node.material = new THREE.MeshStandardMaterial({
                         color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
                     });
+                    // Link the mesh back to the module group for selection
                     node.userData.parentModule = moduleGroup; 
                 }
             });
@@ -500,16 +502,17 @@ function init3DEnvironment() {
     if (currentMode === 'template' || currentMode === 'advanced') {
         loadModule('updatedshoe.glb', 'sole'); 
     } else if (currentMode === 'designer') {
-        // --- FIX: ONSHAPE Z-UP REORIENTATION ---
-        // Setting rx to -90 degrees (Math.PI / -2) to stand the upper up.
-        // Change to Math.PI / 2 if it flips upside down instead.
-        loadModule('sole 1.gltf', 'sole');
+        // --- FIX 2: COORDINATE MISMATCH & DROP HEIGHT ---
+        // Lowered the drop offset to 4 and stand up the upper (rx: -PI/2)
+        // Adjust rx to PI/2 if it flips upside down.
+        loadModule('sole 1.gltf', 'sole', {x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0});
         loadModule('upper.gltf', 'upper', {x: 0, y: 0, z: 0, rx: -Math.PI / 2, ry: 0, rz: 0});
         loadModule('laces.glb', 'laces'); 
     }
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
+    // --- FIX 3: PRECISE VIEWPORT ALIGNMENT ---
     manager.onLoad = () => {
         const box = new THREE.Box3().setFromObject(shoe);
         const center = box.getCenter(new THREE.Vector3());
@@ -519,12 +522,14 @@ function init3DEnvironment() {
         if (maxDim > 0 && maxDim !== Infinity) {
             const scale = 8 / maxDim;
             shoe.scale.set(scale, scale, scale);
+            // Lock in centered position at floor level
             shoe.position.sub(center.multiplyScalar(scale));
-            shoe.position.y += 0.5;
-            shoe.position.x -= 1.5; 
+            shoe.position.y += 0.5; // Fine-tune so bottom mesh touches shadow plane
+            shoe.position.x -= 1.5; // Offset slightly left for configurator panel
             shoe.updateMatrixWorld(true);
         }
 
+        // Lock individual mod coordinates for gravity animation AFTER scaling
         Object.values(shoeModules).forEach(mod => {
             if (mod) {
                 mod.userData.baseScale = mod.scale.clone(); 
@@ -540,11 +545,12 @@ function init3DEnvironment() {
             loadScreen.style.display = 'none'; 
             if(currentMode === 'designer') {
                 showToast("Studio locked to Modular Assembly.");
-                designerStep(0); 
+                designerStep(0); // Trigger step 1 securely
             }
         }, 500);
     };
 
+    // --- FIX 4: RAYCASTING ONLY THE SOLID GROUPS ---
     renderer.domElement.addEventListener('pointermove', (e) => {
         if (e.buttons > 0 || currentMode === 'designer') return; 
         const rect = container.getBoundingClientRect();
@@ -560,6 +566,7 @@ function init3DEnvironment() {
         }
 
         if (hits.length > 0) {
+            // Traverse back to the Solid State group
             hoveredPart = hits[0].object.userData.parentModule; 
             container.style.cursor = 'crosshair';
             if (hoveredPart !== activePart) {
@@ -587,6 +594,7 @@ function init3DEnvironment() {
     animate();
 }
 
+// --- FIX 5: UNIFORM GROUP MODIFICATION ---
 function selectPart(moduleGroup) {
     if(activePart) {
         activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
@@ -627,8 +635,8 @@ function designerStep(direction) {
     document.getElementById('ds-p3').classList.remove('active');
     document.getElementById('shared-tools').style.display = 'block';
 
-    let dropOffset = 5;
-    if (shoe && shoe.scale.y) dropOffset = 5 / shoe.scale.y; 
+    let dropOffset = 4; // Precision lower offset
+    if (shoe && shoe.scale.y) dropOffset = 4 / shoe.scale.y; 
 
     if(designerCurrentStep === 1) {
         document.getElementById('ds-p1').classList.add('active');
@@ -638,9 +646,9 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'block'; 
         
-        camera.position.set(-1.5, 0, 10); 
-        controls.target.set(-1.5, -2, 0);
-        controls.update();
+        // Floor-level view locked for drop animation
+        targetCameraPos.set(-1.5, 0.5, 10); 
+        targetControlsLook.set(-1.5, -2, 0);
 
         showToast("Loading Modular Sole File...");
         
@@ -662,9 +670,9 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'block'; 
         document.getElementById('cad-sliders').style.display = 'block'; 
         
-        camera.position.set(10, 5, 8); 
-        controls.target.set(-1.5, 2, 0);
-        controls.update();
+        // Higher perspective for upper placement
+        targetCameraPos.set(10, 5, 8); 
+        targetControlsLook.set(-1.5, 2, 0);
         
         showToast("Loading Modular Upper File...");
 
@@ -685,9 +693,9 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'none'; 
         
-        camera.position.set(-1.5, 12, 1); 
-        controls.target.set(-1.5, 0, 0);
-        controls.update();
+        // Top-down view for details
+        targetCameraPos.set(-1.5, 12, 1); 
+        targetControlsLook.set(-1.5, 0, 0);
         
         showToast("Loading Accessory Files...");
 
@@ -731,7 +739,6 @@ window.applyScale = (axis, value) => {
     if(activePart.userData.category === 'sole' && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         const delta = (newScale - 1) * 0.4; 
-        
         if (shoeModules.upper) shoeModules.upper.userData.targetY = shoeModules.upper.userData.basePos.y + delta;
         if (shoeModules.laces) shoeModules.laces.userData.targetY = shoeModules.laces.userData.basePos.y + delta;
     }
@@ -849,15 +856,12 @@ window.takeSnapshot = () => {
     const panel = document.getElementById('configurator-panel');
     const snapBtn = document.getElementById('snapshot-btn');
     panel.style.display = 'none'; snapBtn.style.display = 'none';
-    
     if(activePart) activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
-
     setTimeout(() => {
         renderer.render(scene, camera);
         const link = document.createElement('a');
         link.download = 'Footlabs_Design.png'; link.href = renderer.domElement.toDataURL('image/png'); link.click();
         panel.style.display = 'flex'; snapBtn.style.display = 'flex';
-        
         if(activePart) activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x333333); });
     }, 150);
 };
@@ -865,6 +869,11 @@ window.takeSnapshot = () => {
 function animate() {
     requestAnimationFrame(animate);
     
+    // Smooth cinematic camera tweening 
+    camera.position.lerp(targetCameraPos, 0.05);
+    controls.target.lerp(targetControlsLook, 0.05);
+
+    // Smooth gravity drop for Solid Modules
     Object.values(shoeModules).forEach(mod => {
         if (mod && mod.visible && Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
             mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
