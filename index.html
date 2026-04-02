@@ -83,7 +83,7 @@
         .option-label { font-size: 12px; font-weight: 700; color: #111; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 0.5px;}
 
         .mat-grid { display: flex; gap: 10px; margin-bottom: 30px; }
-        .mat-btn { flex: 1; padding: 12px 5px; background: #fff; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; font-size: 11px; font-weight: 500; cursor: pointer; transition: 0.2s; text-align: center; }
+        .mat-btn { flex: 1; padding: 12px 5px; background: #fff; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; font-size: 11px; font-weight: 500; cursor: pointer; transition: 0.2s; text-align: center; color: #111;}
         .mat-btn:hover { border-color: #111; }
         .mat-btn.selected { border-color: #111; border-width: 2px; padding: 11px 4px; font-weight: 700;}
 
@@ -110,10 +110,12 @@
         input[type="range"] { width: 100%; accent-color: #111; cursor: pointer; }
         #safety-readout { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 15px; border-radius: 6px; font-family: 'Share Tech Mono'; font-size: 11px; margin-top: 30px; transition: 0.3s; pointer-events: none;}
         #safety-readout.warning { background: #ffebee; border-color: #ffcdd2; color: #c62828; animation: pulse 1s infinite;}
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); 0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } }
+        
+        /* FIX 1: MISSING BRACKET RESTORED HERE */
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } }
 
         .ds-controls { display: flex; justify-content: space-between; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;}
-        .ds-btn { padding: 12px 20px; border: 1px solid #111; background: transparent; border-radius: 30px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s;}
+        .ds-btn { padding: 12px 20px; border: 1px solid #111; background: transparent; border-radius: 30px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s; color: #111;}
         .ds-btn:hover { background: #111; color: #fff;}
         .ds-btn.primary { background: #111; color: #fff; width: 100%; margin-left: 10px;}
         .ds-btn.primary:hover { background: #e6a822; color: #000; border-color: #e6a822;}
@@ -149,7 +151,6 @@
 
     <div id="onboarding">
         <div class="logo-large">FOOTLABS</div>
-        
         <div class="wizard-container">
             <div class="wizard-step active" id="wiz-1">
                 <div class="question-title">Let's build your profile.</div>
@@ -160,7 +161,6 @@
                 </div>
                 <button class="btn-next" onclick="nextStep(1, 2)">Continue</button>
             </div>
-            
             <div class="wizard-step" id="wiz-2">
                 <div class="question-title">What is your exact fit?</div>
                 <div class="question-sub">Precision engineering requires precise measurements.</div>
@@ -170,7 +170,6 @@
                 </div>
                 <button class="btn-next" onclick="nextStep(2, 3)">Continue</button>
             </div>
-            
             <div class="wizard-step" id="wiz-3">
                 <div class="question-title">How will you move?</div>
                 <div class="question-sub">Select your primary activity and gait profile.</div>
@@ -180,27 +179,25 @@
                 </div>
                 <button class="btn-next" onclick="nextStep(3, 4)">Continue</button>
             </div>
-            
             <div class="wizard-step" id="wiz-4">
                 <div class="question-title">Select Engine Mode</div>
                 <div class="question-sub">Choose your customization experience.</div>
                 <div class="cards-container">
                     <div class="mode-card" onclick="launchStudio('template')">
                         <h3>TEMPLATE</h3>
-                        <p>Configure part-specific colors and materials.</p>
+                        <p>Configure colors & materials on predefined models.</p>
                     </div>
                     <div class="mode-card" onclick="launchStudio('advanced')">
                         <h3>ADVANCED CAD</h3>
-                        <p>Unlock parametric sizing and collision logic.</p>
+                        <p>Unlock parametric sizing and surface details.</p>
                     </div>
                     <div class="mode-card" onclick="launchStudio('designer')">
-                        <h3>DESIGNER</h3>
-                        <p>Guided step-by-step bespoke chassis build.</p>
+                        <h3>MODULAR BUILD</h3>
+                        <p>Guided assembly using your custom Onshape modules.</p>
                     </div>
                 </div>
             </div>
         </div>
-
         <div class="progress-dots">
             <div class="dot active" id="dot-1"></div>
             <div class="dot" id="dot-2"></div>
@@ -339,12 +336,10 @@
     </div>
 
 <script>
-// --- GLOBAL RIGHT CLICK BLOCKER ---
 document.addEventListener('contextmenu', e => {
     if(e.target.tagName !== 'INPUT') e.preventDefault();
 });
 
-// --- GLOBAL STATE ---
 let currentMode = 'template';
 let userActivity = 'casual', userPronation = 'neutral';
 let basePrice = 120, partMaterials = {}; 
@@ -356,9 +351,6 @@ let shoeModules = {
     upper: null,
     laces: null
 };
-
-let targetCameraPos = new THREE.Vector3(12, 4, 12);
-let targetControlsLook = new THREE.Vector3(-1.5, 0, 0);
 
 function showToast(message) {
     const container = document.getElementById('toast-container');
@@ -378,7 +370,6 @@ function nextStep(current, next) {
     document.getElementById('dot-' + next).classList.add('active');
 }
 
-// --- 3D ENGINE ---
 let scene, camera, renderer, controls, shoe;
 let activePart = null, hoveredPart = null, selectableParts = [];
 const manager = new THREE.LoadingManager();
@@ -467,77 +458,92 @@ function init3DEnvironment() {
 
     const loader = new THREE.GLTFLoader(manager);
 
-    // --- FIX 1: SOLID STATE GROUPING LOADER (REPAIRED) ---
-    const loadModule = (filename, category, offsets = {x:0, y:0, z:0, rx:0, ry:0, rz:0}) => {
-        loader.load('models/' + filename, (gltf) => {
-            let moduleGroup = gltf.scene;
-            moduleGroup.userData.category = category;
-            moduleGroup.userData.name = category.toUpperCase();
-            
-            // Apply fixes before adding to scene
-            moduleGroup.rotation.set(offsets.rx, offsets.ry, offsets.rz);
-            moduleGroup.position.set(offsets.x, offsets.y, offsets.z);
-            
-            // Apply material to all child meshes uniformly
-            moduleGroup.traverse(node => {
-                if(node.isMesh) {
+    if (currentMode === 'template' || currentMode === 'advanced') {
+        loader.load('models/updatedshoe.glb', (gltf) => {
+            let monolithicShoe = gltf.scene;
+            monolithicShoe.traverse(node => {
+                if(node.isMesh && node.material && node.material.opacity > 0) {
                     node.castShadow = true; node.receiveShadow = true;
                     node.material = new THREE.MeshStandardMaterial({
-                        color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
+                        color: node.material.color || 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide, name: node.name + "_mat"
                     });
-                    // Link the mesh back to the module group for selection
-                    node.userData.parentModule = moduleGroup; 
+                    node.userData.baseScale = node.scale.clone(); 
+                    node.userData.basePos = node.position.clone(); 
+                    node.userData.targetY = node.position.y; 
+                    partMaterials[node.name] = 0; 
+                    selectableParts.push(node); 
                 }
             });
-
-            shoeModules[category] = moduleGroup;
-            shoe.add(moduleGroup);
-            partMaterials[category] = 0; 
-            
-        }, undefined, (e) => {
-            console.log('Module missing: ' + filename); 
+            const box = new THREE.Box3().setFromObject(monolithicShoe);
+            const center = box.getCenter(new THREE.Vector3());
+            const scale = 8 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
+            monolithicShoe.scale.set(scale, scale, scale);
+            monolithicShoe.position.sub(center.multiplyScalar(scale));
+            monolithicShoe.position.y += 0.5;
+            monolithicShoe.position.x -= 1.5; 
+            monolithicShoe.updateMatrixWorld(true);
+            shoe.add(monolithicShoe);
         });
-    };
 
-    if (currentMode === 'template' || currentMode === 'advanced') {
-        loadModule('updatedshoe.glb', 'sole'); 
     } else if (currentMode === 'designer') {
-        // --- FIX 2: COORDINATE MISMATCH & DROP HEIGHT ---
-        // Lowered the drop offset to 4 and stand up the upper (rx: -PI/2)
-        // Adjust rx to PI/2 if it flips upside down.
+        // --- FIX: TRUE ZERO OFFSET FOR ASSEMBLED ONSHAPE EXPORTS ---
+        const loadModule = (filename, category, offsets = {x:0, y:0, z:0, rx:0, ry:0, rz:0}) => {
+            loader.load('models/' + filename, (gltf) => {
+                let moduleGroup = gltf.scene;
+                moduleGroup.userData.category = category;
+                moduleGroup.userData.name = category.toUpperCase();
+                
+                moduleGroup.rotation.set(offsets.rx, offsets.ry, offsets.rz);
+                moduleGroup.position.set(offsets.x, offsets.y, offsets.z);
+                
+                moduleGroup.traverse(node => {
+                    if(node.isMesh) {
+                        node.castShadow = true; node.receiveShadow = true;
+                        node.material = new THREE.MeshStandardMaterial({
+                            color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
+                        });
+                        node.userData.parentModule = moduleGroup; 
+                    }
+                });
+                shoeModules[category] = moduleGroup;
+                shoe.add(moduleGroup);
+                partMaterials[category] = 0; 
+            });
+        };
+
+        // Since you created an assembly, we drop them natively. No manual rotation needed.
         loadModule('sole 1.gltf', 'sole', {x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0});
-        loadModule('upper.gltf', 'upper', {x: 0, y: 0, z: 0, rx: -Math.PI / 2, ry: 0, rz: 0});
+        loadModule('upper.gltf', 'upper', {x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0});
         loadModule('laces.glb', 'laces'); 
     }
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // --- FIX 3: PRECISE VIEWPORT ALIGNMENT ---
     manager.onLoad = () => {
-        const box = new THREE.Box3().setFromObject(shoe);
-        const center = box.getCenter(new THREE.Vector3());
-        const size = box.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        
-        if (maxDim > 0 && maxDim !== Infinity) {
-            const scale = 8 / maxDim;
-            shoe.scale.set(scale, scale, scale);
-            // Lock in centered position at floor level
-            shoe.position.sub(center.multiplyScalar(scale));
-            shoe.position.y += 0.5; // Fine-tune so bottom mesh touches shadow plane
-            shoe.position.x -= 1.5; // Offset slightly left for configurator panel
-            shoe.updateMatrixWorld(true);
-        }
-
-        // Lock individual mod coordinates for gravity animation AFTER scaling
-        Object.values(shoeModules).forEach(mod => {
-            if (mod) {
-                mod.userData.baseScale = mod.scale.clone(); 
-                mod.userData.basePos = mod.position.clone(); 
-                mod.userData.targetY = mod.position.y; 
-                if (currentMode === 'designer') mod.visible = false; 
+        if (currentMode === 'designer') {
+            const box = new THREE.Box3().setFromObject(shoe);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            
+            if (maxDim > 0 && maxDim !== Infinity) {
+                const scale = 8 / maxDim;
+                shoe.scale.set(scale, scale, scale);
+                shoe.position.sub(center.multiplyScalar(scale));
+                shoe.position.y += 0.5;
+                shoe.position.x -= 1.5; 
+                shoe.updateMatrixWorld(true);
             }
-        });
+
+            Object.values(shoeModules).forEach(mod => {
+                if (mod) {
+                    mod.userData.baseScale = mod.scale.clone(); 
+                    mod.userData.basePos = mod.position.clone(); 
+                    mod.userData.targetY = mod.position.y; 
+                    mod.visible = false; 
+                }
+            });
+        }
 
         const loadScreen = document.getElementById('loading-screen');
         loadScreen.style.opacity = '0';
@@ -545,32 +551,39 @@ function init3DEnvironment() {
             loadScreen.style.display = 'none'; 
             if(currentMode === 'designer') {
                 showToast("Studio locked to Modular Assembly.");
-                designerStep(0); // Trigger step 1 securely
+                designerStep(0); 
             }
         }, 500);
     };
 
-    // --- FIX 4: RAYCASTING ONLY THE SOLID GROUPS ---
+    // --- FIX: RESTORED TEMPLATE & ADVANCED MESH SELECTION ---
     renderer.domElement.addEventListener('pointermove', (e) => {
-        if (e.buttons > 0 || currentMode === 'designer') return; 
+        if (e.buttons > 0) return; 
         const rect = container.getBoundingClientRect();
         mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
-        const activeModules = Object.values(shoeModules).filter(m => m && m.visible);
-        const hits = raycaster.intersectObjects(activeModules, true);
+        let hits = [];
+        if (currentMode === 'designer') {
+            const activeModules = Object.values(shoeModules).filter(m => m && m.visible);
+            hits = raycaster.intersectObjects(activeModules, true);
+        } else {
+            const visibleParts = selectableParts.filter(p => p.visible !== false);
+            hits = raycaster.intersectObjects(visibleParts, true);
+        }
 
         if (hoveredPart && hoveredPart !== activePart) {
-            hoveredPart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
+            if (currentMode === 'designer') hoveredPart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
+            else hoveredPart.material.emissive.setHex(0x000000);
         }
 
         if (hits.length > 0) {
-            // Traverse back to the Solid State group
-            hoveredPart = hits[0].object.userData.parentModule; 
+            hoveredPart = currentMode === 'designer' ? hits[0].object.userData.parentModule : hits[0].object; 
             container.style.cursor = 'crosshair';
             if (hoveredPart !== activePart) {
-                hoveredPart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x222222); });
+                if (currentMode === 'designer') hoveredPart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x222222); });
+                else hoveredPart.material.emissive.setHex(0x222222);
             }
         } else {
             hoveredPart = null;
@@ -579,38 +592,53 @@ function init3DEnvironment() {
     });
 
     renderer.domElement.addEventListener('pointerup', (e) => {
-        if (e.button !== 0 || currentMode === 'designer') return; 
+        if (e.button !== 0) return; 
         const rect = container.getBoundingClientRect();
         mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
-        const activeModules = Object.values(shoeModules).filter(m => m && m.visible);
-        const hits = raycaster.intersectObjects(activeModules, true);
+        let hits = [];
+        if (currentMode === 'designer') {
+            const activeModules = Object.values(shoeModules).filter(m => m && m.visible);
+            hits = raycaster.intersectObjects(activeModules, true);
+        } else {
+            const visibleParts = selectableParts.filter(p => p.visible !== false);
+            hits = raycaster.intersectObjects(visibleParts, true);
+        }
         
-        if (hits.length > 0) selectPart(hits[0].object.userData.parentModule);
+        if (hits.length > 0) {
+            let target = currentMode === 'designer' ? hits[0].object.userData.parentModule : hits[0].object;
+            selectPart(target);
+        }
     });
 
     animate();
 }
 
-// --- FIX 5: UNIFORM GROUP MODIFICATION ---
-function selectPart(moduleGroup) {
+function selectPart(target) {
     if(activePart) {
-        activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
+        if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
+        else activePart.material.emissive.setHex(0x000000);
     }
-    activePart = moduleGroup;
     
-    activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x555555); });
-    setTimeout(() => { if(activePart) activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x333333); }); }, 200);
+    activePart = target;
+    
+    if (currentMode === 'designer') {
+        activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x555555); });
+        setTimeout(() => { if(activePart) activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x333333); }); }, 200);
+    } else {
+        activePart.material.emissive.setHex(0x555555);
+        setTimeout(() => { if(activePart) activePart.material.emissive.setHex(0x333333); }, 200);
+    }
 
     document.getElementById('instruction-text').style.display = 'none';
     document.getElementById('shared-tools').style.display = 'block';
     
-    let firstMesh = null;
-    activePart.traverse(n => { if(n.isMesh && !firstMesh) firstMesh = n; });
-    if (firstMesh) document.getElementById('native-color-picker').value = "#" + firstMesh.material.color.getHexString();
+    let firstMesh = currentMode === 'designer' ? null : activePart;
+    if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh && !firstMesh) firstMesh = n; });
     
+    if (firstMesh && firstMesh.material) document.getElementById('native-color-picker').value = "#" + firstMesh.material.color.getHexString();
     clearColorSelections();
     
     if(currentMode === 'advanced' || currentMode === 'designer') {
@@ -619,11 +647,13 @@ function selectPart(moduleGroup) {
         document.getElementById('scale-y').value = activePart.scale.y / activePart.userData.baseScale.y;
         document.getElementById('scale-z').value = activePart.scale.z / activePart.userData.baseScale.z;
         updateSliderText();
-        runSafetyEngine(activePart.scale.y / activePart.userData.baseScale.y, 'y');
+        let yAxis = activePart.scale.y / activePart.userData.baseScale.y;
+        runSafetyEngine(yAxis, 'y');
     }
     
     const displayBox = document.getElementById('active-part-display');
-    displayBox.innerText = "EDITING: " + activePart.userData.name;
+    let partName = currentMode === 'designer' ? activePart.userData.name : activePart.name.replace(/_/g, ' ');
+    displayBox.innerText = "EDITING: " + partName;
     displayBox.classList.add('active-state');
 }
 
@@ -635,7 +665,7 @@ function designerStep(direction) {
     document.getElementById('ds-p3').classList.remove('active');
     document.getElementById('shared-tools').style.display = 'block';
 
-    let dropOffset = 4; // Precision lower offset
+    let dropOffset = 4; // Lowered drop offset
     if (shoe && shoe.scale.y) dropOffset = 4 / shoe.scale.y; 
 
     if(designerCurrentStep === 1) {
@@ -646,9 +676,10 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'block'; 
         
-        // Floor-level view locked for drop animation
-        targetCameraPos.set(-1.5, 0.5, 10); 
-        targetControlsLook.set(-1.5, -2, 0);
+        // --- FIX: LOWERED CAMERA ANGLE SO USER DOESN'T HAVE TO SCROLL ---
+        camera.position.set(-1.5, 2, 10); 
+        controls.target.set(-1.5, 0, 0);
+        controls.update();
 
         showToast("Loading Modular Sole File...");
         
@@ -670,9 +701,9 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'block'; 
         document.getElementById('cad-sliders').style.display = 'block'; 
         
-        // Higher perspective for upper placement
-        targetCameraPos.set(10, 5, 8); 
-        targetControlsLook.set(-1.5, 2, 0);
+        camera.position.set(8, 6, 8); 
+        controls.target.set(-1.5, 1, 0);
+        controls.update();
         
         showToast("Loading Modular Upper File...");
 
@@ -693,9 +724,9 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'none'; 
         
-        // Top-down view for details
-        targetCameraPos.set(-1.5, 12, 1); 
-        targetControlsLook.set(-1.5, 0, 0);
+        camera.position.set(-1.5, 10, 2); 
+        controls.target.set(-1.5, 0, 0);
+        controls.update();
         
         showToast("Loading Accessory Files...");
 
@@ -736,11 +767,19 @@ window.applyScale = (axis, value) => {
     activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
     updateSliderText();
     
-    if(activePart.userData.category === 'sole' && axis === 'y') {
+    let isSole = currentMode === 'designer' ? activePart.userData.category === 'sole' : activePart.name.toUpperCase().includes('SOLE');
+
+    if(isSole && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         const delta = (newScale - 1) * 0.4; 
-        if (shoeModules.upper) shoeModules.upper.userData.targetY = shoeModules.upper.userData.basePos.y + delta;
-        if (shoeModules.laces) shoeModules.laces.userData.targetY = shoeModules.laces.userData.basePos.y + delta;
+        if (currentMode === 'designer') {
+            if (shoeModules.upper) shoeModules.upper.userData.targetY = shoeModules.upper.userData.basePos.y + delta;
+            if (shoeModules.laces) shoeModules.laces.userData.targetY = shoeModules.laces.userData.basePos.y + delta;
+        } else {
+            selectableParts.forEach(node => {
+                if(!node.name.toUpperCase().includes('SOLE')) node.userData.targetY = node.userData.basePos.y + delta;
+            });
+        }
     }
     runSafetyEngine(newScale, axis);
 };
@@ -753,7 +792,9 @@ function updateSliderText() {
 
 function runSafetyEngine(scaleVal, axis) {
     const readout = document.getElementById('safety-readout');
-    if(activePart.userData.category === 'sole' && axis === 'y') {
+    let isSole = currentMode === 'designer' ? activePart.userData.category === 'sole' : activePart.name.toUpperCase().includes('SOLE');
+
+    if(isSole && axis === 'y') {
         if(userActivity === 'running' && scaleVal < 0.8) {
             readout.className = "warning"; readout.innerHTML = "<b>STRUCTURAL ALERT:</b><br>Sole thickness too low for Distance Running."; return;
         } else if (userPronation === 'overpronation' && scaleVal < 1.05) {
@@ -769,13 +810,15 @@ function clearColorSelections() {
 }
 window.applyCuratedColor = (hex, element) => { 
     if(activePart) { 
-        activePart.traverse(n => { if(n.isMesh) n.material.color.set(hex); });
+        if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.color.set(hex); });
+        else activePart.material.color.set(hex);
         clearColorSelections(); element.classList.add('selected'); 
     }
 };
 window.applyCustomColor = (hex) => { 
     if(activePart) { 
-        activePart.traverse(n => { if(n.isMesh) n.material.color.set(hex); });
+        if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.color.set(hex); });
+        else activePart.material.color.set(hex);
         clearColorSelections(); document.getElementById('gradient-btn').classList.add('selected'); 
     }
 };
@@ -785,17 +828,16 @@ window.applyMaterial = (type, element) => {
     document.querySelectorAll('#mat-container .mat-btn').forEach(btn => btn.classList.remove('selected'));
     element.classList.add('selected');
 
-    if (type === 'standard') { 
-        activePart.traverse(n => { if(n.isMesh) { n.material.roughness = 0.6; n.material.metalness = 0.1; }});
-        partMaterials[activePart.userData.category] = 0; 
-    } 
-    else if (type === 'glossy') { 
-        activePart.traverse(n => { if(n.isMesh) { n.material.roughness = 0.15; n.material.metalness = 0.4; }});
-        partMaterials[activePart.userData.category] = 10; 
-    } 
-    else if (type === 'foam') { 
-        activePart.traverse(n => { if(n.isMesh) { n.material.roughness = 0.95; n.material.metalness = 0.0; }});
-        partMaterials[activePart.userData.category] = 15; 
+    let roughness = 0.6, metalness = 0.1, price = 0;
+    if (type === 'glossy') { roughness = 0.15; metalness = 0.4; price = 10; } 
+    else if (type === 'foam') { roughness = 0.95; metalness = 0.0; price = 15; }
+
+    if (currentMode === 'designer') {
+        activePart.traverse(n => { if(n.isMesh) { n.material.roughness = roughness; n.material.metalness = metalness; }});
+        partMaterials[activePart.userData.category] = price; 
+    } else {
+        activePart.material.roughness = roughness; activePart.material.metalness = metalness;
+        partMaterials[activePart.name] = price;
     }
     calculatePrice();
 };
@@ -819,12 +861,15 @@ window.applyTexture = (type, element) => {
     document.querySelectorAll('#advanced-textures .mat-btn').forEach(btn => btn.classList.remove('selected'));
     element.classList.add('selected');
 
-    if(type === 'smooth') { 
-        activePart.traverse(n => { if(n.isMesh) n.material.bumpMap = null; });
-    } else { 
-        activePart.traverse(n => { if(n.isMesh) { n.material.bumpMap = proceduralTextures[type]; n.material.bumpScale = 0.05; } });
+    let map = type === 'smooth' ? null : proceduralTextures[type];
+    
+    if (currentMode === 'designer') {
+        activePart.traverse(n => { if(n.isMesh) { n.material.bumpMap = map; if(map) n.material.bumpScale = 0.05; n.material.needsUpdate = true; } });
+    } else {
+        activePart.material.bumpMap = map;
+        if(map) activePart.material.bumpScale = 0.05;
+        activePart.material.needsUpdate = true;
     }
-    activePart.traverse(n => { if(n.isMesh) n.material.needsUpdate = true; });
 };
 
 function calculatePrice() {
@@ -856,29 +901,42 @@ window.takeSnapshot = () => {
     const panel = document.getElementById('configurator-panel');
     const snapBtn = document.getElementById('snapshot-btn');
     panel.style.display = 'none'; snapBtn.style.display = 'none';
-    if(activePart) activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
+    
+    if(activePart) {
+        if(currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
+        else activePart.material.emissive.setHex(0x000000);
+    }
+
     setTimeout(() => {
         renderer.render(scene, camera);
         const link = document.createElement('a');
         link.download = 'Footlabs_Design.png'; link.href = renderer.domElement.toDataURL('image/png'); link.click();
         panel.style.display = 'flex'; snapBtn.style.display = 'flex';
-        if(activePart) activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x333333); });
+        
+        if(activePart) {
+            if(currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x333333); });
+            else activePart.material.emissive.setHex(0x333333);
+        }
     }, 150);
 };
 
+// --- FIX 3: SCRUBBED ANIMATION LOOP (NO MORE CAMERA FIGHTING) ---
 function animate() {
     requestAnimationFrame(animate);
     
-    // Smooth cinematic camera tweening 
-    camera.position.lerp(targetCameraPos, 0.05);
-    controls.target.lerp(targetControlsLook, 0.05);
-
-    // Smooth gravity drop for Solid Modules
-    Object.values(shoeModules).forEach(mod => {
-        if (mod && mod.visible && Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
-            mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
-        }
-    });
+    if (currentMode === 'designer') {
+        Object.values(shoeModules).forEach(mod => {
+            if (mod && mod.visible && Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
+                mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
+            }
+        });
+    } else {
+        selectableParts.forEach(p => {
+            if (p.visible !== false && Math.abs(p.position.y - p.userData.targetY) > 0.005) {
+                p.position.y += (p.userData.targetY - p.position.y) * 0.15;
+            }
+        });
+    }
     
     if(controls) controls.update(); 
     if(renderer && scene && camera) renderer.render(scene, camera);
