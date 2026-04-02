@@ -57,6 +57,7 @@
         .snapshot-btn:hover { transform: scale(1.1); border-color:#111;}
         .snapshot-btn svg { width: 22px; height: 22px; stroke: #111; stroke-width: 2; fill: none; }
 
+        /* --- SYSTEM TOAST NOTIFICATIONS --- */
         #toast-container { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 5000; display: flex; flex-direction: column; gap: 10px; pointer-events: none;}
         .sys-toast { background: rgba(17, 17, 17, 0.9); backdrop-filter: blur(10px); color: #fff; padding: 12px 24px; border-radius: 30px; font-family: 'Share Tech Mono', monospace; font-size: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); animation: toastIn 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; text-align: center; letter-spacing: 0.5px;}
         @keyframes toastIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
@@ -351,9 +352,6 @@ let basePrice = 120, partMaterials = {};
 let proceduralTextures = {}; 
 let designerCurrentStep = 1;
 
-let targetCameraPos = new THREE.Vector3(12, 4, 12);
-let targetControlsLook = new THREE.Vector3(-1.5, 0, 0);
-
 function showToast(message) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
@@ -416,7 +414,7 @@ function init3DEnvironment() {
     scene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
-    camera.position.copy(targetCameraPos);
+    camera.position.set(12, 4, 12); 
 
     renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -432,9 +430,12 @@ function init3DEnvironment() {
     controls.minDistance = 5;
     controls.maxDistance = 20;
     controls.enablePan = false; 
+    
+    // PERFECTED ROTATION BINDING
     controls.mouseButtons = { LEFT: null, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
     controls.maxPolarAngle = Math.PI / 2; 
-    controls.target.copy(targetControlsLook);
+    controls.target.set(-1.5, 0, 0); 
+    controls.update();
 
     scene.add(new THREE.AmbientLight(0xffffff, 0.7));
     const keyLight = new THREE.DirectionalLight(0xffffff, 0.6);
@@ -487,7 +488,7 @@ function init3DEnvironment() {
                 
                 node.userData.baseScale = node.scale.clone(); 
                 node.userData.basePos = node.position.clone(); 
-                node.userData.targetY = node.position.y; // Added for falling animation
+                node.userData.targetY = node.position.y; 
                 
                 // Categorize parts for Designer Mode
                 let n = node.name.toUpperCase();
@@ -602,8 +603,9 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'block'; 
         
-        targetCameraPos.set(-1.5, 0, 10); 
-        targetControlsLook.set(-1.5, -2, 0);
+        camera.position.set(-1.5, 0, 10); 
+        controls.target.set(-1.5, -2, 0);
+        controls.update(); // CRITICAL SNAP
 
         showToast("Extracting Sole Geometry...");
         
@@ -630,8 +632,9 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'block'; 
         document.getElementById('cad-sliders').style.display = 'block'; // Allow scaling upper
         
-        targetCameraPos.set(10, 5, 8); 
-        targetControlsLook.set(-1.5, 2, 0);
+        camera.position.set(10, 5, 8); 
+        controls.target.set(-1.5, 2, 0);
+        controls.update(); // CRITICAL SNAP
         
         showToast("Constructing Upper Chassis...");
 
@@ -656,8 +659,9 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'none'; // Lock laces scaling
         
-        targetCameraPos.set(-1.5, 12, 1); 
-        targetControlsLook.set(-1.5, 0, 0);
+        camera.position.set(-1.5, 12, 1); 
+        controls.target.set(-1.5, 0, 0);
+        controls.update(); // CRITICAL SNAP
         
         showToast("Applying Lace System...");
 
@@ -818,14 +822,11 @@ window.takeSnapshot = () => {
     }, 150);
 };
 
+// THE FIXED ANIMATION LOOP
 function animate() {
     requestAnimationFrame(animate);
     
-    // Cinematic Camera Tweening 
-    camera.position.lerp(targetCameraPos, 0.05);
-    controls.target.lerp(targetControlsLook, 0.05);
-
-    // GHOST EXTRACTION DROPPING ANIMATION
+    // GHOST EXTRACTION DROPPING ANIMATION ONLY
     if (currentMode === 'designer') {
         selectableParts.forEach(p => {
             if (p.visible && Math.abs(p.position.y - p.userData.targetY) > 0.005) {
