@@ -107,9 +107,16 @@
         .slider-group { margin-bottom: 25px; }
         .slider-group label { display: flex; justify-content: space-between; font-size: 11px; font-family: 'Share Tech Mono'; color: #555; margin-bottom: 8px; text-transform: uppercase;}
         input[type="range"] { width: 100%; accent-color: #111; cursor: pointer; }
+        
         #safety-readout { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 15px; border-radius: 6px; font-family: 'Share Tech Mono'; font-size: 11px; margin-top: 30px; transition: 0.3s; pointer-events: none;}
         #safety-readout.warning { background: #ffebee; border-color: #ffcdd2; color: #c62828; animation: pulse 1s infinite;}
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } }
+        
+        /* 🚨 THE BUG IS DEAD: Clean, properly bracketed CSS animation 🚨 */
+        @keyframes pulse { 
+            0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 
+            70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 
+            100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } 
+        }
 
         .ds-controls { display: flex; justify-content: space-between; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;}
         .ds-btn { padding: 12px 20px; border: 1px solid #111; background: transparent; border-radius: 30px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s; color: #111;}
@@ -143,13 +150,13 @@
 // ==========================================
 // 🛠️ ONSHAPE CALIBRATION CONTROL PANEL 🛠️
 // ==========================================
-// If your parts are sideways or floating, change these numbers!
-// rx, ry, rz are rotations (Math.PI / 2 = 90 degrees)
-// x, y, z are positions (e.g., y: 1.5 moves it up)
+// Use this to fix the Z-up/Y-up mismatch from your CAD exports.
+// rx, ry, rz = Rotations (Math.PI / 2 = 90 degrees)
+// x, y, z = Positions (y: 1.5 lifts the upper up so it doesn't clip)
 
 const ONSHAPE_FIX = {
     sole:  { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 },
-    upper: { x: 0, y: 1.5, z: 0, rx: -Math.PI / 2, ry: 0, rz: 0 }, // Upper stood up and lifted 1.5 units
+    upper: { x: 0, y: 1.5, z: 0, rx: -Math.PI / 2, ry: 0, rz: 0 }, 
     laces: { x: 0, y: 2.0, z: 0, rx: -Math.PI / 2, ry: 0, rz: 0 }
 };
 // ==========================================
@@ -164,11 +171,7 @@ let basePrice = 120, partMaterials = {};
 let proceduralTextures = {}; 
 let designerCurrentStep = 1;
 
-let shoeModules = {
-    sole: null,
-    upper: null,
-    laces: null
-};
+let shoeModules = { sole: null, upper: null, laces: null };
 
 function showToast(message) {
     const container = document.getElementById('toast-container');
@@ -276,15 +279,15 @@ function init3DEnvironment() {
 
     const loader = new THREE.GLTFLoader(manager);
 
-    const loadModule = (filename, category, offsets) => {
+    // Dynamic Loader: Handles both Monolithic and Modular
+    const loadModule = (filename, category, offsets, isMonolithic = false) => {
         loader.load('models/' + filename, (gltf) => {
             let moduleGroup = gltf.scene;
-            moduleGroup.userData.category = category;
             
-            // APPLY CALIBRATION OFFSETS
+            // Apply Manual Calibrations
             moduleGroup.rotation.set(offsets.rx, offsets.ry, offsets.rz);
             moduleGroup.position.set(offsets.x, offsets.y, offsets.z);
-            moduleGroup.userData.targetY = offsets.y; // Record resting height
+            moduleGroup.userData.targetY = offsets.y; 
             
             moduleGroup.traverse(node => {
                 if(node.isMesh) {
@@ -294,7 +297,18 @@ function init3DEnvironment() {
                     });
                     node.userData.baseScale = node.scale.clone();
                     node.userData.parentModule = moduleGroup; 
-                    selectableParts.push(node); // ALLOW INDIVIDUAL MESH SELECTION AGAIN
+                    
+                    // Categorize meshes properly for collision math
+                    if (isMonolithic) {
+                        let n = node.name.toUpperCase();
+                        if(n.includes('SOLE') || n.includes('BOTTOM')) node.userData.category = 'sole';
+                        else if(n.includes('LACE') || n.includes('AGLET')) node.userData.category = 'laces';
+                        else node.userData.category = 'upper';
+                    } else {
+                        node.userData.category = category;
+                    }
+
+                    selectableParts.push(node); // Allow clicking individual meshes
                 }
             });
             shoeModules[category] = moduleGroup;
@@ -303,12 +317,13 @@ function init3DEnvironment() {
         });
     };
 
+    // ARCHITECTURE VAULT:
     if (currentMode === 'template' || currentMode === 'advanced') {
-        loadModule('updatedshoe.glb', 'sole', ONSHAPE_FIX.sole); 
+        loadModule('updatedshoe.glb', 'sole', ONSHAPE_FIX.sole, true); 
     } else if (currentMode === 'designer') {
-        loadModule('sole 1.gltf', 'sole', ONSHAPE_FIX.sole);
-        loadModule('upper.gltf', 'upper', ONSHAPE_FIX.upper);
-        loadModule('laces.glb', 'laces', ONSHAPE_FIX.laces); 
+        loadModule('sole 1.gltf', 'sole', ONSHAPE_FIX.sole, false);
+        loadModule('upper.gltf', 'upper', ONSHAPE_FIX.upper, false);
+        loadModule('laces.glb', 'laces', ONSHAPE_FIX.laces, false); 
     }
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
@@ -345,7 +360,7 @@ function init3DEnvironment() {
         }, 500);
     };
 
-    // INDIVIDUAL PART SELECTION RESTORED
+    // RESTORED: INDIVIDUAL MESH RAYCASTING
     renderer.domElement.addEventListener('pointermove', (e) => {
         if (e.buttons > 0) return; 
         const rect = container.getBoundingClientRect();
@@ -353,14 +368,13 @@ function init3DEnvironment() {
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
-        // Only hit parts belonging to a visible module
         const activeMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
         const hits = raycaster.intersectObjects(activeMeshes, true);
 
         if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
         
         if (hits.length > 0) {
-            hoveredPart = hits[0].object; // SPECIFIC MESH
+            hoveredPart = hits[0].object; 
             container.style.cursor = 'crosshair';
             if (hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x222222);
         } else {
@@ -379,7 +393,7 @@ function init3DEnvironment() {
         const activeMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
         const hits = raycaster.intersectObjects(activeMeshes, true);
         
-        if (hits.length > 0) selectPart(hits[0].object); // Pass SPECIFIC MESH
+        if (hits.length > 0) selectPart(hits[0].object); 
     });
 
     animate();
@@ -387,7 +401,8 @@ function init3DEnvironment() {
 
 function selectPart(mesh) {
     if(activePart) activePart.material.emissive.setHex(0x000000);
-    activePart = mesh;
+    
+    activePart = mesh; // ONLY the clicked part is selected
     
     activePart.material.emissive.setHex(0x555555);
     setTimeout(() => { if(activePart) activePart.material.emissive.setHex(0x333333); }, 200);
@@ -409,7 +424,7 @@ function selectPart(mesh) {
     
     const displayBox = document.getElementById('active-part-display');
     let niceName = activePart.name.replace(/_/g, ' ');
-    if (niceName.includes('Mesh')) niceName = activePart.userData.parentModule.userData.category + " Section";
+    if (niceName.includes('Mesh')) niceName = activePart.userData.category.toUpperCase() + " SECTION";
     displayBox.innerText = "EDITING: " + niceName;
     displayBox.classList.add('active-state');
 }
@@ -430,12 +445,16 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'block'; 
         
+        // Locked level camera angle
+        camera.position.set(-1.5, 2, 10); 
+        controls.target.set(-1.5, 0, 0);
+        controls.update();
+
         showToast("Loading Modular Sole File...");
         
         if (shoeModules.sole) {
             shoeModules.sole.visible = true;
-            shoeModules.sole.position.y = ONSHAPE_FIX.sole.y + 10; // Drop from sky
-            // Select first mesh of sole
+            shoeModules.sole.position.y = ONSHAPE_FIX.sole.y + 10; 
             let first = null; shoeModules.sole.traverse(n => {if(n.isMesh && !first) first = n;});
             if(first) selectPart(first);
         }
@@ -450,6 +469,10 @@ function designerStep(direction) {
         document.getElementById('ds-next').innerText = "Next Phase";
         document.getElementById('ds-upper-tools').style.display = 'block'; 
         document.getElementById('cad-sliders').style.display = 'block'; 
+        
+        camera.position.set(8, 6, 8); 
+        controls.target.set(-1.5, 1, 0);
+        controls.update();
         
         showToast("Loading Modular Upper File...");
 
@@ -469,6 +492,10 @@ function designerStep(direction) {
         document.getElementById('ds-next').innerText = "Finish Design";
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'none'; 
+        
+        camera.position.set(-1.5, 10, 2); 
+        controls.target.set(-1.5, 0, 0);
+        controls.update();
         
         showToast("Loading Accessory Files...");
 
@@ -513,13 +540,17 @@ window.applyScale = (axis, value) => {
     activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
     updateSliderText();
     
-    let cat = activePart.userData.parentModule.userData.category;
+    let cat = activePart.userData.category;
     if(cat === 'sole' && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         const delta = (newScale - 1) * 0.4; 
         if (currentMode === 'designer') {
             if (shoeModules.upper) shoeModules.upper.userData.targetY = ONSHAPE_FIX.upper.y + delta;
             if (shoeModules.laces) shoeModules.laces.userData.targetY = ONSHAPE_FIX.laces.y + delta;
+        } else {
+            selectableParts.forEach(node => {
+                if(node.userData.category !== 'sole') node.userData.targetY = node.userData.basePos.y + delta;
+            });
         }
     }
     runSafetyEngine(newScale, axis);
@@ -533,7 +564,7 @@ function updateSliderText() {
 
 function runSafetyEngine(scaleVal, axis) {
     const readout = document.getElementById('safety-readout');
-    let cat = activePart.userData.parentModule.userData.category;
+    let cat = activePart.userData.category;
     if(cat === 'sole' && axis === 'y') {
         if(userActivity === 'running' && scaleVal < 0.8) {
             readout.className = "warning"; readout.innerHTML = "<b>STRUCTURAL ALERT:</b><br>Sole thickness too low for Distance Running."; return;
@@ -644,6 +675,12 @@ function animate() {
                 mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
             }
         });
+    } else {
+        selectableParts.forEach(p => {
+            if (p.visible !== false && Math.abs(p.position.y - p.userData.targetY) > 0.005) {
+                p.position.y += (p.userData.targetY - p.position.y) * 0.15;
+            }
+        });
     }
     
     if(controls) controls.update(); 
@@ -660,4 +697,3 @@ window.addEventListener('resize', () => {
 </script>
 </body>
 </html>
-    </div>
