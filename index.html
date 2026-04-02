@@ -137,7 +137,7 @@
         .receipt-header p { margin: 5px 0 0 0; color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;}
         .line-item { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 14px; color: #333;}
         .line-item.bold { font-weight: 700; color: #111; font-size: 16px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;}
-        .btn-confirm { background: #e6a822; color: #000; width: 100%; padding: 18px; border: none; border-radius: 30px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; cursor: margin-top: 30px; transition: 0.2s;}
+        .btn-confirm { background: #e6a822; color: #000; width: 100%; padding: 18px; border: none; border-radius: 30px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; margin-top: 30px; transition: 0.2s;}
         .btn-confirm:hover { background: #111; color: #e6a822; }
         .btn-close { text-align: center; margin-top: 15px; font-size: 12px; color: #888; cursor: pointer; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;}
         .btn-close:hover { color: #111; }
@@ -149,12 +149,10 @@
 // ==========================================
 // 🛠️ AUTO-SNAP ASSEMBLY ENGINE 🛠️
 // ==========================================
-// The sliders are gone. The engine now mathematically finds the top of the sole 
-// and drops the upper exactly onto it.
-
+// Adjust this ONLY if the Upper flips upside down instead of standing up.
 const ONSHAPE_FIX = {
     sole:  { rx: 0, ry: 0, rz: 0 },
-    upper: { rx: -Math.PI / 2, ry: 0, rz: 0 }, // Rotate 90 deg to stand up
+    upper: { rx: -Math.PI / 2, ry: 0, rz: 0 }, 
     laces: { rx: -Math.PI / 2, ry: 0, rz: 0 }
 };
 // ==========================================
@@ -276,12 +274,23 @@ function init3DEnvironment() {
     scene.add(shoe);
 
     const loader = new THREE.GLTFLoader(manager);
+    
+    // THE IRONCLAD VAULT: Custom asynchronous load tracking to prevent WebGL crashes
+    let expectedFiles = 0;
+    let loadedFiles = 0;
+
+    const checkAllLoaded = () => {
+        loadedFiles++;
+        if (loadedFiles === expectedFiles) {
+            finalizeEngineSetup();
+        }
+    };
 
     const loadModule = (filename, category, rotations, isMonolithic = false) => {
+        expectedFiles++;
         loader.load('models/' + filename, (gltf) => {
             let moduleGroup = gltf.scene;
             
-            // Only apply initial upright rotation
             moduleGroup.rotation.set(rotations.rx, rotations.ry, rotations.rz);
             
             moduleGroup.traverse(node => {
@@ -307,6 +316,11 @@ function init3DEnvironment() {
             shoeModules[category] = moduleGroup;
             shoe.add(moduleGroup);
             partMaterials[category] = 0; 
+            checkAllLoaded();
+            
+        }, undefined, (e) => {
+            console.warn('Skipping missing file to prevent crash: ' + filename);
+            checkAllLoaded(); // Guarantee execution even if laces.glb doesn't exist
         });
     };
 
@@ -320,36 +334,29 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    manager.onLoad = () => {
-        if (currentMode === 'designer') {
-            // --- THE AUTO-SNAP ENGINE ---
-            shoe.updateMatrixWorld(true); // Force calculate global positions
+    // SAFE FINALIZE METHOD (Runs ONLY when safely populated)
+    function finalizeEngineSetup() {
+        if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
+            shoe.updateMatrixWorld(true);
 
-            let soleBox = new THREE.Box3();
-            let upperBox = new THREE.Box3();
+            let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
+            let upperBox = new THREE.Box3().setFromObject(shoeModules.upper);
 
-            if (shoeModules.sole) soleBox.setFromObject(shoeModules.sole);
-            if (shoeModules.upper) upperBox.setFromObject(shoeModules.upper);
-
-            if (shoeModules.sole && shoeModules.upper) {
-                // Math: Top pixel of Sole minus Bottom pixel of Upper
+            // Safe Math calculation
+            if (soleBox.max.y !== -Infinity && upperBox.min.y !== Infinity) {
                 let yOffset = soleBox.max.y - upperBox.min.y;
+                yOffset -= 0.05; // Sink upper slightly for a realistic seal
                 
-                // Nudge upper down tiny bit so it sits flush in the rim
-                yOffset -= 0.05; 
-                
-                // Snap it
                 shoeModules.upper.position.y += yOffset;
                 shoeModules.upper.updateMatrixWorld(true);
 
-                if (shoeModules.laces) {
+                if (shoeModules.laces && shoeModules.laces.children.length > 0) {
                     shoeModules.laces.position.y += yOffset;
                     shoeModules.laces.updateMatrixWorld(true);
                 }
             }
         }
 
-        // Now that pieces are perfectly stacked, shrink wrap and fit to screen
         const combinedBox = new THREE.Box3().setFromObject(shoe);
         const center = combinedBox.getCenter(new THREE.Vector3());
         const size = combinedBox.getSize(new THREE.Vector3());
@@ -385,11 +392,11 @@ function init3DEnvironment() {
         setTimeout(() => { 
             loadScreen.style.display = 'none'; 
             if(currentMode === 'designer') {
-                showToast("Studio locked to Auto-Snapping Modular Assembly.");
+                showToast("Studio locked to Auto-Snapping Assembly.");
                 designerStep(0); 
             }
         }, 500);
-    };
+    }
 
     renderer.domElement.addEventListener('pointermove', (e) => {
         if (e.buttons > 0) return; 
@@ -399,9 +406,7 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') {
-            validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
-        }
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
         
         const hits = raycaster.intersectObjects(validMeshes, true);
 
@@ -431,9 +436,7 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') {
-            validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
-        }
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
         
         const hits = raycaster.intersectObjects(validMeshes, true);
         
@@ -494,7 +497,6 @@ function designerStep(direction) {
     document.getElementById('ds-p3').classList.remove('active');
     document.getElementById('shared-tools').style.display = 'block';
 
-    // Perfectly scaled drop height calculated dynamically
     let dropOffset = 10; 
     if (shoe && shoe.scale.y) dropOffset = 10 / shoe.scale.y; 
 
@@ -510,7 +512,7 @@ function designerStep(direction) {
         controls.target.set(-1.5, 0, 0);
         controls.update();
 
-        showToast("Loading Modular Sole File...");
+        showToast("Loading Modular Sole...");
         
         if (shoeModules.sole) {
             shoeModules.sole.visible = true;
@@ -533,7 +535,7 @@ function designerStep(direction) {
         controls.target.set(-1.5, 1, 0);
         controls.update();
         
-        showToast("Loading Modular Upper File...");
+        showToast("Loading Modular Upper...");
 
         if (shoeModules.upper) {
             shoeModules.upper.visible = true;
@@ -554,7 +556,7 @@ function designerStep(direction) {
         controls.target.set(-1.5, 0, 0);
         controls.update();
         
-        showToast("Loading Accessory Files...");
+        showToast("Loading Accessories...");
 
         if (shoeModules.laces && shoeModules.laces.children.length > 0) {
             shoeModules.laces.visible = true;
