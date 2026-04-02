@@ -12,7 +12,6 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     
     <style>
-        /* --- LOCKED BASE STYLES --- */
         body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Helvetica Neue', 'Roboto', sans-serif; color: #111; }
         #loading-screen { position: fixed; inset: 0; background: #ffffff; z-index: 3000; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease-out; pointer-events: none; }
         .loader-logo { font-size: 24px; font-weight: 700; letter-spacing: 2px; margin-bottom: 20px; }
@@ -110,8 +109,6 @@
         input[type="range"] { width: 100%; accent-color: #111; cursor: pointer; }
         #safety-readout { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 15px; border-radius: 6px; font-family: 'Share Tech Mono'; font-size: 11px; margin-top: 30px; transition: 0.3s; pointer-events: none;}
         #safety-readout.warning { background: #ffebee; border-color: #ffcdd2; color: #c62828; animation: pulse 1s infinite;}
-        
-        /* FIX 1: MISSING BRACKET RESTORED HERE */
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } }
 
         .ds-controls { display: flex; justify-content: space-between; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;}
@@ -142,200 +139,21 @@
 </head>
 <body>
 
-    <div id="loading-screen" style="display: none;">
-        <div class="loader-logo">FOOTLABS STUDIO</div>
-        <div class="progress-bar-container"><div id="progress-bar"></div></div>
-    </div>
-
-    <div id="toast-container"></div>
-
-    <div id="onboarding">
-        <div class="logo-large">FOOTLABS</div>
-        <div class="wizard-container">
-            <div class="wizard-step active" id="wiz-1">
-                <div class="question-title">Let's build your profile.</div>
-                <div class="question-sub">Basic biomechanical data helps us optimize the chassis.</div>
-                <div class="input-row">
-                    <div class="input-group"><label>Age</label><input type="number" placeholder="e.g. 28"></div>
-                    <div class="input-group"><label>Gender</label><select><option>Male</option><option>Female</option><option>Neutral</option></select></div>
-                </div>
-                <button class="btn-next" onclick="nextStep(1, 2)">Continue</button>
-            </div>
-            <div class="wizard-step" id="wiz-2">
-                <div class="question-title">What is your exact fit?</div>
-                <div class="question-sub">Precision engineering requires precise measurements.</div>
-                <div class="input-row">
-                    <div class="input-group"><label>Foot Size (UK)</label><input type="number" value="8" step="0.5"></div>
-                    <div class="input-group"><label>Foot Width</label><select><option>Standard (D)</option><option>Wide (EE)</option><option>Narrow (B)</option></select></div>
-                </div>
-                <button class="btn-next" onclick="nextStep(2, 3)">Continue</button>
-            </div>
-            <div class="wizard-step" id="wiz-3">
-                <div class="question-title">How will you move?</div>
-                <div class="question-sub">Select your primary activity and gait profile.</div>
-                <div class="input-row">
-                    <div class="input-group"><label>Activity</label><select id="usr-activity"><option value="casual">Everyday Casual</option><option value="running">Distance Running</option><option value="athletics">Athletics</option></select></div>
-                    <div class="input-group"><label>Pronation</label><select id="usr-pronation"><option value="neutral">Neutral</option><option value="overpronation">Overpronation</option></select></div>
-                </div>
-                <button class="btn-next" onclick="nextStep(3, 4)">Continue</button>
-            </div>
-            <div class="wizard-step" id="wiz-4">
-                <div class="question-title">Select Engine Mode</div>
-                <div class="question-sub">Choose your customization experience.</div>
-                <div class="cards-container">
-                    <div class="mode-card" onclick="launchStudio('template')">
-                        <h3>TEMPLATE</h3>
-                        <p>Configure colors & materials on predefined models.</p>
-                    </div>
-                    <div class="mode-card" onclick="launchStudio('advanced')">
-                        <h3>ADVANCED CAD</h3>
-                        <p>Unlock parametric sizing and surface details.</p>
-                    </div>
-                    <div class="mode-card" onclick="launchStudio('designer')">
-                        <h3>MODULAR BUILD</h3>
-                        <p>Guided assembly using your custom Onshape modules.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="progress-dots">
-            <div class="dot active" id="dot-1"></div>
-            <div class="dot" id="dot-2"></div>
-            <div class="dot" id="dot-3"></div>
-            <div class="dot" id="dot-4"></div>
-        </div>
-    </div>
-
-    <div id="workspace">
-        <div id="canvas-container"></div>
-        
-        <div class="snapshot-btn" id="snapshot-btn" onclick="takeSnapshot()" title="Save Image">
-            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-        </div>
-        
-        <div id="configurator-panel">
-            <div class="panel-header">
-                <h1>DESIGN YOUR OWN</h1>
-                <div class="mode-badge" id="mode-badge">TEMPLATE MODE</div>
-                
-                <div id="designer-header">
-                    <div id="designer-progress">
-                        <div class="ds-step active" id="ds-p1"></div>
-                        <div class="ds-step" id="ds-p2"></div>
-                        <div class="ds-step" id="ds-p3"></div>
-                    </div>
-                    <div id="ds-title">1. Construct Sole</div>
-                </div>
-
-                <div id="active-part-display">Waiting for selection...</div>
-            </div>
-
-            <div id="instruction-text">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="margin-bottom:10px;">
-                    <circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path>
-                </svg><br>
-                <span style="color:#111;"><b>Right-Click and Drag</b> anywhere to rotate.</span><br><br>
-                <span id="click-instruction"><b>Left-Click</b> directly on any part to customize it.</span>
-            </div>
-
-            <div id="shared-tools" class="tool-panel">
-                
-                <div id="ds-upper-tools" style="display:none; margin-bottom: 25px; padding-bottom: 25px; border-bottom: 1px solid #eee;">
-                    <div class="option-label" style="color:#e6a822;">Structural Cut</div>
-                    <div class="mat-grid" style="margin-bottom:0;">
-                        <button class="mat-btn selected" onclick="simulateHighTop('low', this)">Low Top</button>
-                        <button class="mat-btn" onclick="simulateHighTop('high', this)">High Top</button>
-                    </div>
-                </div>
-
-                <div class="option-label">1. Material Physics & Textures</div>
-                <div class="mat-grid">
-                    <button class="mat-btn selected" onclick="applyMaterial('standard', this)">Matte Leather</button>
-                    <button class="mat-btn" onclick="applyMaterial('foam', this)">Suede / Foam</button>
-                    <button class="mat-btn" onclick="applyMaterial('glossy', this)">Glossy Poly</button>
-                </div>
-                
-                <div class="mat-grid" id="advanced-textures" style="display:none; margin-top:-20px;">
-                    <button class="mat-btn selected" onclick="applyTexture('smooth', this)">Smooth</button>
-                    <button class="mat-btn" onclick="applyTexture('carbon', this)">Carbon Mesh</button>
-                    <button class="mat-btn" onclick="applyTexture('ribbed', this)">Ribbed Grip</button>
-                </div>
-
-                <div class="color-section">
-                    <div class="option-label">2. Curated Colors</div>
-                    <div class="color-grid" id="curated-colors">
-                        <div class="color-swatch bg-white" onclick="applyCuratedColor('#ffffff', this)"></div>
-                        <div class="color-swatch bg-black" onclick="applyCuratedColor('#1a1a1a', this)"></div>
-                        <div class="color-swatch bg-sail" onclick="applyCuratedColor('#f4f0e6', this)"></div>
-                        <div class="color-swatch bg-red" onclick="applyCuratedColor('#c92a2a', this)"></div>
-                        <div class="color-swatch bg-blue" onclick="applyCuratedColor('#1864ab', this)"></div>
-                        <div class="color-swatch bg-gum" onclick="applyCuratedColor('#d0b084', this)"></div>
-                    </div>
-                </div>
-
-                <div class="color-section">
-                    <div class="option-label">3. Custom Spectrum</div>
-                    <div class="custom-color-container" id="gradient-btn">
-                        <div class="custom-color-text">Open Color Wheel</div>
-                        <input type="color" id="native-color-picker" oninput="applyCustomColor(this.value)">
-                    </div>
-                </div>
-
-                <div id="cad-sliders" style="display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px;">
-                    <div class="option-label">Parametric Manipulation</div>
-                    <div class="slider-group">
-                        <label><span>X-Axis (Width)</span> <span id="val-x">1.00</span></label>
-                        <input type="range" id="scale-x" min="0.8" max="1.5" step="0.05" value="1" oninput="applyScale('x', this.value)">
-                    </div>
-                    <div class="slider-group">
-                        <label><span>Y-Axis (Thickness)</span> <span id="val-y">1.00</span></label>
-                        <input type="range" id="scale-y" min="0.5" max="2.0" step="0.05" value="1" oninput="applyScale('y', this.value)">
-                    </div>
-                    <div class="slider-group">
-                        <label><span>Z-Axis (Length)</span> <span id="val-z">1.00</span></label>
-                        <input type="range" id="scale-z" min="0.9" max="1.2" step="0.05" value="1" oninput="applyScale('z', this.value)">
-                    </div>
-                    <div id="safety-readout">SYS.CHECK: Biomechanics Nominal.<br>Structure within safe limits.</div>
-                </div>
-
-                <div id="designer-nav" class="ds-controls" style="display:none;">
-                    <button class="ds-btn" id="ds-prev" style="display:none;" onclick="designerStep(-1)">Back</button>
-                    <button class="ds-btn primary" id="ds-next" onclick="designerStep(1)">Next Phase</button>
-                </div>
-            </div>
-
-            <div style="flex-grow: 1;"></div>
-            
-            <div class="checkout-area" id="checkout-footer">
-                <div class="price-display">
-                    <span>Total Price</span>
-                    <span id="price-tag">$120</span>
-                </div>
-                <button class="checkout-btn" onclick="showCheckout()">Finish Design</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="checkout-modal">
-        <div class="receipt-card">
-            <div class="receipt-header">
-                <h2>FOOTLABS</h2>
-                <p>Order Summary</p>
-            </div>
-            
-            <div class="line-item"><span>Base Chassis</span><span>$120.00</span></div>
-            <div class="line-item" id="receipt-materials"><span>Material Upcharges</span><span>$0.00</span></div>
-            <div class="line-item" id="receipt-advanced" style="display:none; color: #e6a822;"><span>Advanced CAD Engine Fee</span><span>$50.00</span></div>
-            <div class="line-item" id="receipt-designer" style="display:none; color: #e6a822;"><span>Bespoke Design Fee</span><span>$80.00</span></div>
-            
-            <div class="line-item bold"><span>Total Due</span><span id="receipt-total">$120.00</span></div>
-            
-            <button class="btn-confirm" onclick="alert('Order Sent to Manufacturing!')">Confirm & Build</button>
-            <div class="btn-close" onclick="closeCheckout()">Return to Studio</div>
-        </div>
-    </div>
-
 <script>
+// ==========================================
+// 🛠️ ONSHAPE CALIBRATION CONTROL PANEL 🛠️
+// ==========================================
+// If your parts are sideways or floating, change these numbers!
+// rx, ry, rz are rotations (Math.PI / 2 = 90 degrees)
+// x, y, z are positions (e.g., y: 1.5 moves it up)
+
+const ONSHAPE_FIX = {
+    sole:  { x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0 },
+    upper: { x: 0, y: 1.5, z: 0, rx: -Math.PI / 2, ry: 0, rz: 0 }, // Upper stood up and lifted 1.5 units
+    laces: { x: 0, y: 2.0, z: 0, rx: -Math.PI / 2, ry: 0, rz: 0 }
+};
+// ==========================================
+
 document.addEventListener('contextmenu', e => {
     if(e.target.tagName !== 'INPUT') e.preventDefault();
 });
@@ -458,90 +276,61 @@ function init3DEnvironment() {
 
     const loader = new THREE.GLTFLoader(manager);
 
-    if (currentMode === 'template' || currentMode === 'advanced') {
-        loader.load('models/updatedshoe.glb', (gltf) => {
-            let monolithicShoe = gltf.scene;
-            monolithicShoe.traverse(node => {
-                if(node.isMesh && node.material && node.material.opacity > 0) {
+    const loadModule = (filename, category, offsets) => {
+        loader.load('models/' + filename, (gltf) => {
+            let moduleGroup = gltf.scene;
+            moduleGroup.userData.category = category;
+            
+            // APPLY CALIBRATION OFFSETS
+            moduleGroup.rotation.set(offsets.rx, offsets.ry, offsets.rz);
+            moduleGroup.position.set(offsets.x, offsets.y, offsets.z);
+            moduleGroup.userData.targetY = offsets.y; // Record resting height
+            
+            moduleGroup.traverse(node => {
+                if(node.isMesh) {
                     node.castShadow = true; node.receiveShadow = true;
                     node.material = new THREE.MeshStandardMaterial({
-                        color: node.material.color || 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide, name: node.name + "_mat"
+                        color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
                     });
-                    node.userData.baseScale = node.scale.clone(); 
-                    node.userData.basePos = node.position.clone(); 
-                    node.userData.targetY = node.position.y; 
-                    partMaterials[node.name] = 0; 
-                    selectableParts.push(node); 
+                    node.userData.baseScale = node.scale.clone();
+                    node.userData.parentModule = moduleGroup; 
+                    selectableParts.push(node); // ALLOW INDIVIDUAL MESH SELECTION AGAIN
                 }
             });
-            const box = new THREE.Box3().setFromObject(monolithicShoe);
-            const center = box.getCenter(new THREE.Vector3());
-            const scale = 8 / Math.max(box.getSize(new THREE.Vector3()).x, box.getSize(new THREE.Vector3()).y, box.getSize(new THREE.Vector3()).z);
-            monolithicShoe.scale.set(scale, scale, scale);
-            monolithicShoe.position.sub(center.multiplyScalar(scale));
-            monolithicShoe.position.y += 0.5;
-            monolithicShoe.position.x -= 1.5; 
-            monolithicShoe.updateMatrixWorld(true);
-            shoe.add(monolithicShoe);
+            shoeModules[category] = moduleGroup;
+            shoe.add(moduleGroup);
+            partMaterials[category] = 0; 
         });
+    };
 
+    if (currentMode === 'template' || currentMode === 'advanced') {
+        loadModule('updatedshoe.glb', 'sole', ONSHAPE_FIX.sole); 
     } else if (currentMode === 'designer') {
-        // --- FIX: TRUE ZERO OFFSET FOR ASSEMBLED ONSHAPE EXPORTS ---
-        const loadModule = (filename, category, offsets = {x:0, y:0, z:0, rx:0, ry:0, rz:0}) => {
-            loader.load('models/' + filename, (gltf) => {
-                let moduleGroup = gltf.scene;
-                moduleGroup.userData.category = category;
-                moduleGroup.userData.name = category.toUpperCase();
-                
-                moduleGroup.rotation.set(offsets.rx, offsets.ry, offsets.rz);
-                moduleGroup.position.set(offsets.x, offsets.y, offsets.z);
-                
-                moduleGroup.traverse(node => {
-                    if(node.isMesh) {
-                        node.castShadow = true; node.receiveShadow = true;
-                        node.material = new THREE.MeshStandardMaterial({
-                            color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
-                        });
-                        node.userData.parentModule = moduleGroup; 
-                    }
-                });
-                shoeModules[category] = moduleGroup;
-                shoe.add(moduleGroup);
-                partMaterials[category] = 0; 
-            });
-        };
-
-        // Since you created an assembly, we drop them natively. No manual rotation needed.
-        loadModule('sole 1.gltf', 'sole', {x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0});
-        loadModule('upper.gltf', 'upper', {x: 0, y: 0, z: 0, rx: 0, ry: 0, rz: 0});
-        loadModule('laces.glb', 'laces'); 
+        loadModule('sole 1.gltf', 'sole', ONSHAPE_FIX.sole);
+        loadModule('upper.gltf', 'upper', ONSHAPE_FIX.upper);
+        loadModule('laces.glb', 'laces', ONSHAPE_FIX.laces); 
     }
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
     manager.onLoad = () => {
-        if (currentMode === 'designer') {
-            const box = new THREE.Box3().setFromObject(shoe);
-            const center = box.getCenter(new THREE.Vector3());
-            const size = box.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z);
-            
-            if (maxDim > 0 && maxDim !== Infinity) {
-                const scale = 8 / maxDim;
-                shoe.scale.set(scale, scale, scale);
-                shoe.position.sub(center.multiplyScalar(scale));
-                shoe.position.y += 0.5;
-                shoe.position.x -= 1.5; 
-                shoe.updateMatrixWorld(true);
-            }
+        const box = new THREE.Box3().setFromObject(shoe);
+        const center = box.getCenter(new THREE.Vector3());
+        const size = box.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        
+        if (maxDim > 0 && maxDim !== Infinity) {
+            const scale = 8 / maxDim;
+            shoe.scale.set(scale, scale, scale);
+            shoe.position.sub(center.multiplyScalar(scale));
+            shoe.position.y += 0.5;
+            shoe.position.x -= 1.5; 
+            shoe.updateMatrixWorld(true);
+        }
 
+        if (currentMode === 'designer') {
             Object.values(shoeModules).forEach(mod => {
-                if (mod) {
-                    mod.userData.baseScale = mod.scale.clone(); 
-                    mod.userData.basePos = mod.position.clone(); 
-                    mod.userData.targetY = mod.position.y; 
-                    mod.visible = false; 
-                }
+                if (mod) mod.visible = false; 
             });
         }
 
@@ -556,7 +345,7 @@ function init3DEnvironment() {
         }, 500);
     };
 
-    // --- FIX: RESTORED TEMPLATE & ADVANCED MESH SELECTION ---
+    // INDIVIDUAL PART SELECTION RESTORED
     renderer.domElement.addEventListener('pointermove', (e) => {
         if (e.buttons > 0) return; 
         const rect = container.getBoundingClientRect();
@@ -564,27 +353,16 @@ function init3DEnvironment() {
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
-        let hits = [];
-        if (currentMode === 'designer') {
-            const activeModules = Object.values(shoeModules).filter(m => m && m.visible);
-            hits = raycaster.intersectObjects(activeModules, true);
-        } else {
-            const visibleParts = selectableParts.filter(p => p.visible !== false);
-            hits = raycaster.intersectObjects(visibleParts, true);
-        }
+        // Only hit parts belonging to a visible module
+        const activeMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        const hits = raycaster.intersectObjects(activeMeshes, true);
 
-        if (hoveredPart && hoveredPart !== activePart) {
-            if (currentMode === 'designer') hoveredPart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
-            else hoveredPart.material.emissive.setHex(0x000000);
-        }
-
+        if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
+        
         if (hits.length > 0) {
-            hoveredPart = currentMode === 'designer' ? hits[0].object.userData.parentModule : hits[0].object; 
+            hoveredPart = hits[0].object; // SPECIFIC MESH
             container.style.cursor = 'crosshair';
-            if (hoveredPart !== activePart) {
-                if (currentMode === 'designer') hoveredPart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x222222); });
-                else hoveredPart.material.emissive.setHex(0x222222);
-            }
+            if (hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x222222);
         } else {
             hoveredPart = null;
             container.style.cursor = 'default';
@@ -598,47 +376,26 @@ function init3DEnvironment() {
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
-        let hits = [];
-        if (currentMode === 'designer') {
-            const activeModules = Object.values(shoeModules).filter(m => m && m.visible);
-            hits = raycaster.intersectObjects(activeModules, true);
-        } else {
-            const visibleParts = selectableParts.filter(p => p.visible !== false);
-            hits = raycaster.intersectObjects(visibleParts, true);
-        }
+        const activeMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        const hits = raycaster.intersectObjects(activeMeshes, true);
         
-        if (hits.length > 0) {
-            let target = currentMode === 'designer' ? hits[0].object.userData.parentModule : hits[0].object;
-            selectPart(target);
-        }
+        if (hits.length > 0) selectPart(hits[0].object); // Pass SPECIFIC MESH
     });
 
     animate();
 }
 
-function selectPart(target) {
-    if(activePart) {
-        if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
-        else activePart.material.emissive.setHex(0x000000);
-    }
+function selectPart(mesh) {
+    if(activePart) activePart.material.emissive.setHex(0x000000);
+    activePart = mesh;
     
-    activePart = target;
-    
-    if (currentMode === 'designer') {
-        activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x555555); });
-        setTimeout(() => { if(activePart) activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x333333); }); }, 200);
-    } else {
-        activePart.material.emissive.setHex(0x555555);
-        setTimeout(() => { if(activePart) activePart.material.emissive.setHex(0x333333); }, 200);
-    }
+    activePart.material.emissive.setHex(0x555555);
+    setTimeout(() => { if(activePart) activePart.material.emissive.setHex(0x333333); }, 200);
 
     document.getElementById('instruction-text').style.display = 'none';
     document.getElementById('shared-tools').style.display = 'block';
     
-    let firstMesh = currentMode === 'designer' ? null : activePart;
-    if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh && !firstMesh) firstMesh = n; });
-    
-    if (firstMesh && firstMesh.material) document.getElementById('native-color-picker').value = "#" + firstMesh.material.color.getHexString();
+    document.getElementById('native-color-picker').value = "#" + activePart.material.color.getHexString();
     clearColorSelections();
     
     if(currentMode === 'advanced' || currentMode === 'designer') {
@@ -647,13 +404,13 @@ function selectPart(target) {
         document.getElementById('scale-y').value = activePart.scale.y / activePart.userData.baseScale.y;
         document.getElementById('scale-z').value = activePart.scale.z / activePart.userData.baseScale.z;
         updateSliderText();
-        let yAxis = activePart.scale.y / activePart.userData.baseScale.y;
-        runSafetyEngine(yAxis, 'y');
+        runSafetyEngine(activePart.scale.y / activePart.userData.baseScale.y, 'y');
     }
     
     const displayBox = document.getElementById('active-part-display');
-    let partName = currentMode === 'designer' ? activePart.userData.name : activePart.name.replace(/_/g, ' ');
-    displayBox.innerText = "EDITING: " + partName;
+    let niceName = activePart.name.replace(/_/g, ' ');
+    if (niceName.includes('Mesh')) niceName = activePart.userData.parentModule.userData.category + " Section";
+    displayBox.innerText = "EDITING: " + niceName;
     displayBox.classList.add('active-state');
 }
 
@@ -665,9 +422,6 @@ function designerStep(direction) {
     document.getElementById('ds-p3').classList.remove('active');
     document.getElementById('shared-tools').style.display = 'block';
 
-    let dropOffset = 4; // Lowered drop offset
-    if (shoe && shoe.scale.y) dropOffset = 4 / shoe.scale.y; 
-
     if(designerCurrentStep === 1) {
         document.getElementById('ds-p1').classList.add('active');
         document.getElementById('ds-title').innerText = "1. Construct Sole";
@@ -676,18 +430,14 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'block'; 
         
-        // --- FIX: LOWERED CAMERA ANGLE SO USER DOESN'T HAVE TO SCROLL ---
-        camera.position.set(-1.5, 2, 10); 
-        controls.target.set(-1.5, 0, 0);
-        controls.update();
-
         showToast("Loading Modular Sole File...");
         
         if (shoeModules.sole) {
             shoeModules.sole.visible = true;
-            shoeModules.sole.position.y = shoeModules.sole.userData.basePos.y + dropOffset; 
-            shoeModules.sole.userData.targetY = shoeModules.sole.userData.basePos.y; 
-            selectPart(shoeModules.sole);
+            shoeModules.sole.position.y = ONSHAPE_FIX.sole.y + 10; // Drop from sky
+            // Select first mesh of sole
+            let first = null; shoeModules.sole.traverse(n => {if(n.isMesh && !first) first = n;});
+            if(first) selectPart(first);
         }
         if (shoeModules.upper) shoeModules.upper.visible = false;
         if (shoeModules.laces) shoeModules.laces.visible = false;
@@ -701,17 +451,13 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'block'; 
         document.getElementById('cad-sliders').style.display = 'block'; 
         
-        camera.position.set(8, 6, 8); 
-        controls.target.set(-1.5, 1, 0);
-        controls.update();
-        
         showToast("Loading Modular Upper File...");
 
         if (shoeModules.upper) {
             shoeModules.upper.visible = true;
-            shoeModules.upper.position.y = shoeModules.upper.userData.basePos.y + dropOffset;
-            shoeModules.upper.userData.targetY = shoeModules.upper.userData.basePos.y;
-            selectPart(shoeModules.upper);
+            shoeModules.upper.position.y = ONSHAPE_FIX.upper.y + 10;
+            let first = null; shoeModules.upper.traverse(n => {if(n.isMesh && !first) first = n;});
+            if(first) selectPart(first);
         }
         if (shoeModules.laces) shoeModules.laces.visible = false;
     }
@@ -724,19 +470,18 @@ function designerStep(direction) {
         document.getElementById('ds-upper-tools').style.display = 'none';
         document.getElementById('cad-sliders').style.display = 'none'; 
         
-        camera.position.set(-1.5, 10, 2); 
-        controls.target.set(-1.5, 0, 0);
-        controls.update();
-        
         showToast("Loading Accessory Files...");
 
         if (shoeModules.laces) {
             shoeModules.laces.visible = true;
-            shoeModules.laces.position.y = shoeModules.laces.userData.basePos.y + dropOffset;
-            shoeModules.laces.userData.targetY = shoeModules.laces.userData.basePos.y;
-            selectPart(shoeModules.laces);
+            shoeModules.laces.position.y = ONSHAPE_FIX.laces.y + 10;
+            let first = null; shoeModules.laces.traverse(n => {if(n.isMesh && !first) first = n;});
+            if(first) selectPart(first);
         } else {
-             if (shoeModules.upper) selectPart(shoeModules.upper);
+             if (shoeModules.upper) {
+                 let first = null; shoeModules.upper.traverse(n => {if(n.isMesh && !first) first = n;});
+                 if(first) selectPart(first);
+             }
         }
     }
     else if (designerCurrentStep > 3) {
@@ -750,13 +495,14 @@ window.simulateHighTop = (type, btn) => {
     document.querySelectorAll('#ds-upper-tools .mat-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     
+    let mod = activePart.userData.parentModule;
     if(type === 'high') {
         activePart.scale.y = activePart.userData.baseScale.y * 1.5;
-        activePart.userData.targetY = activePart.userData.basePos.y + 0.8; 
+        mod.userData.targetY = ONSHAPE_FIX[mod.userData.category].y + 0.8; 
         showToast("Upper chassis extended to High Top profile.");
     } else {
         activePart.scale.y = activePart.userData.baseScale.y;
-        activePart.userData.targetY = activePart.userData.basePos.y;
+        mod.userData.targetY = ONSHAPE_FIX[mod.userData.category].y;
         showToast("Upper chassis restored to Low Top profile.");
     }
 };
@@ -767,18 +513,13 @@ window.applyScale = (axis, value) => {
     activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
     updateSliderText();
     
-    let isSole = currentMode === 'designer' ? activePart.userData.category === 'sole' : activePart.name.toUpperCase().includes('SOLE');
-
-    if(isSole && axis === 'y') {
+    let cat = activePart.userData.parentModule.userData.category;
+    if(cat === 'sole' && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         const delta = (newScale - 1) * 0.4; 
         if (currentMode === 'designer') {
-            if (shoeModules.upper) shoeModules.upper.userData.targetY = shoeModules.upper.userData.basePos.y + delta;
-            if (shoeModules.laces) shoeModules.laces.userData.targetY = shoeModules.laces.userData.basePos.y + delta;
-        } else {
-            selectableParts.forEach(node => {
-                if(!node.name.toUpperCase().includes('SOLE')) node.userData.targetY = node.userData.basePos.y + delta;
-            });
+            if (shoeModules.upper) shoeModules.upper.userData.targetY = ONSHAPE_FIX.upper.y + delta;
+            if (shoeModules.laces) shoeModules.laces.userData.targetY = ONSHAPE_FIX.laces.y + delta;
         }
     }
     runSafetyEngine(newScale, axis);
@@ -792,9 +533,8 @@ function updateSliderText() {
 
 function runSafetyEngine(scaleVal, axis) {
     const readout = document.getElementById('safety-readout');
-    let isSole = currentMode === 'designer' ? activePart.userData.category === 'sole' : activePart.name.toUpperCase().includes('SOLE');
-
-    if(isSole && axis === 'y') {
+    let cat = activePart.userData.parentModule.userData.category;
+    if(cat === 'sole' && axis === 'y') {
         if(userActivity === 'running' && scaleVal < 0.8) {
             readout.className = "warning"; readout.innerHTML = "<b>STRUCTURAL ALERT:</b><br>Sole thickness too low for Distance Running."; return;
         } else if (userPronation === 'overpronation' && scaleVal < 1.05) {
@@ -810,15 +550,13 @@ function clearColorSelections() {
 }
 window.applyCuratedColor = (hex, element) => { 
     if(activePart) { 
-        if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.color.set(hex); });
-        else activePart.material.color.set(hex);
+        activePart.material.color.set(hex);
         clearColorSelections(); element.classList.add('selected'); 
     }
 };
 window.applyCustomColor = (hex) => { 
     if(activePart) { 
-        if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.color.set(hex); });
-        else activePart.material.color.set(hex);
+        activePart.material.color.set(hex);
         clearColorSelections(); document.getElementById('gradient-btn').classList.add('selected'); 
     }
 };
@@ -828,17 +566,9 @@ window.applyMaterial = (type, element) => {
     document.querySelectorAll('#mat-container .mat-btn').forEach(btn => btn.classList.remove('selected'));
     element.classList.add('selected');
 
-    let roughness = 0.6, metalness = 0.1, price = 0;
-    if (type === 'glossy') { roughness = 0.15; metalness = 0.4; price = 10; } 
-    else if (type === 'foam') { roughness = 0.95; metalness = 0.0; price = 15; }
-
-    if (currentMode === 'designer') {
-        activePart.traverse(n => { if(n.isMesh) { n.material.roughness = roughness; n.material.metalness = metalness; }});
-        partMaterials[activePart.userData.category] = price; 
-    } else {
-        activePart.material.roughness = roughness; activePart.material.metalness = metalness;
-        partMaterials[activePart.name] = price;
-    }
+    if (type === 'standard') { activePart.material.roughness = 0.6; activePart.material.metalness = 0.1; partMaterials[activePart.name] = 0; } 
+    else if (type === 'glossy') { activePart.material.roughness = 0.15; activePart.material.metalness = 0.4; partMaterials[activePart.name] = 10; } 
+    else if (type === 'foam') { activePart.material.roughness = 0.95; activePart.material.metalness = 0.0; partMaterials[activePart.name] = 15; }
     calculatePrice();
 };
 
@@ -861,15 +591,9 @@ window.applyTexture = (type, element) => {
     document.querySelectorAll('#advanced-textures .mat-btn').forEach(btn => btn.classList.remove('selected'));
     element.classList.add('selected');
 
-    let map = type === 'smooth' ? null : proceduralTextures[type];
-    
-    if (currentMode === 'designer') {
-        activePart.traverse(n => { if(n.isMesh) { n.material.bumpMap = map; if(map) n.material.bumpScale = 0.05; n.material.needsUpdate = true; } });
-    } else {
-        activePart.material.bumpMap = map;
-        if(map) activePart.material.bumpScale = 0.05;
-        activePart.material.needsUpdate = true;
-    }
+    if(type === 'smooth') { activePart.material.bumpMap = null; } 
+    else { activePart.material.bumpMap = proceduralTextures[type]; activePart.material.bumpScale = 0.05; }
+    activePart.material.needsUpdate = true;
 };
 
 function calculatePrice() {
@@ -901,26 +625,16 @@ window.takeSnapshot = () => {
     const panel = document.getElementById('configurator-panel');
     const snapBtn = document.getElementById('snapshot-btn');
     panel.style.display = 'none'; snapBtn.style.display = 'none';
-    
-    if(activePart) {
-        if(currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
-        else activePart.material.emissive.setHex(0x000000);
-    }
-
+    if(activePart) activePart.material.emissive.setHex(0x000000);
     setTimeout(() => {
         renderer.render(scene, camera);
         const link = document.createElement('a');
         link.download = 'Footlabs_Design.png'; link.href = renderer.domElement.toDataURL('image/png'); link.click();
         panel.style.display = 'flex'; snapBtn.style.display = 'flex';
-        
-        if(activePart) {
-            if(currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x333333); });
-            else activePart.material.emissive.setHex(0x333333);
-        }
+        if(activePart) activePart.material.emissive.setHex(0x333333);
     }, 150);
 };
 
-// --- FIX 3: SCRUBBED ANIMATION LOOP (NO MORE CAMERA FIGHTING) ---
 function animate() {
     requestAnimationFrame(animate);
     
@@ -928,12 +642,6 @@ function animate() {
         Object.values(shoeModules).forEach(mod => {
             if (mod && mod.visible && Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
                 mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
-            }
-        });
-    } else {
-        selectableParts.forEach(p => {
-            if (p.visible !== false && Math.abs(p.position.y - p.userData.targetY) > 0.005) {
-                p.position.y += (p.userData.targetY - p.position.y) * 0.15;
             }
         });
     }
@@ -952,3 +660,4 @@ window.addEventListener('resize', () => {
 </script>
 </body>
 </html>
+    </div>
