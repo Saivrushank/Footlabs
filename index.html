@@ -146,17 +146,6 @@
 <body>
 
 <script>
-// ==========================================
-// 🛠️ AUTO-SNAP ASSEMBLY ENGINE 🛠️
-// ==========================================
-// Adjust this ONLY if the Upper flips upside down instead of standing up.
-const ONSHAPE_FIX = {
-    sole:  { rx: 0, ry: 0, rz: 0 },
-    upper: { rx: -Math.PI / 2, ry: 0, rz: 0 }, 
-    laces: { rx: -Math.PI / 2, ry: 0, rz: 0 }
-};
-// ==========================================
-
 document.addEventListener('contextmenu', e => {
     if(e.target.tagName !== 'INPUT') e.preventDefault();
 });
@@ -274,8 +263,10 @@ function init3DEnvironment() {
     scene.add(shoe);
 
     const loader = new THREE.GLTFLoader(manager);
-    
-    // THE IRONCLAD VAULT: Custom asynchronous load tracking to prevent WebGL crashes
+
+    // ========================================================
+    // 🛡️ THE IRONCLAD ASYNC VAULT & LEGO STACKER 🛡️
+    // ========================================================
     let expectedFiles = 0;
     let loadedFiles = 0;
 
@@ -286,21 +277,51 @@ function init3DEnvironment() {
         }
     };
 
-    const loadModule = (filename, category, rotations, isMonolithic = false) => {
+    const loadModule = (filename, category, isMonolithic = false) => {
         expectedFiles++;
         loader.load('models/' + filename, (gltf) => {
-            let moduleGroup = gltf.scene;
+            let rawGroup = gltf.scene;
             
-            moduleGroup.rotation.set(rotations.rx, rotations.ry, rotations.rz);
+            if (!isMonolithic) {
+                // 1. Stand up the Upper & Laces
+                if (category === 'upper' || category === 'laces') {
+                    rawGroup.rotation.x = -Math.PI / 2;
+                }
+                rawGroup.updateMatrixWorld(true);
+
+                // 2. Obliterate Onshape's invisible origin mathematically
+                let box = new THREE.Box3().setFromObject(rawGroup);
+                let center = new THREE.Vector3();
+                box.getCenter(center);
+
+                rawGroup.position.set(-center.x, -center.y, -center.z);
+                rawGroup.updateMatrixWorld(true);
+
+                // 3. Wrap it in a clean Lego Block
+                let wrapper = new THREE.Group();
+                wrapper.userData.category = category;
+                wrapper.userData.name = category.toUpperCase();
+                wrapper.add(rawGroup);
+
+                shoeModules[category] = wrapper;
+                shoe.add(wrapper);
+            } else {
+                rawGroup.userData.category = category;
+                rawGroup.userData.name = category.toUpperCase();
+                shoeModules[category] = rawGroup;
+                shoe.add(rawGroup);
+            }
+
+            let targetGroup = isMonolithic ? rawGroup : shoeModules[category];
             
-            moduleGroup.traverse(node => {
+            targetGroup.traverse(node => {
                 if(node.isMesh) {
                     node.castShadow = true; node.receiveShadow = true;
                     node.material = new THREE.MeshStandardMaterial({
                         color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
                     });
                     node.userData.baseScale = node.scale.clone();
-                    node.userData.parentModule = moduleGroup; 
+                    node.userData.parentModule = targetGroup; 
                     
                     if (isMonolithic) {
                         let n = node.name.toUpperCase();
@@ -310,31 +331,30 @@ function init3DEnvironment() {
                     } else {
                         node.userData.category = category;
                     }
-                    selectableParts.push(node); 
+                    selectableParts.push(node); // Ensures clicking works
                 }
             });
-            shoeModules[category] = moduleGroup;
-            shoe.add(moduleGroup);
+
             partMaterials[category] = 0; 
             checkAllLoaded();
             
         }, undefined, (e) => {
-            console.warn('Skipping missing file to prevent crash: ' + filename);
-            checkAllLoaded(); // Guarantee execution even if laces.glb doesn't exist
+            console.warn('Skipping file: ' + filename);
+            checkAllLoaded();
         });
     };
 
     if (currentMode === 'template' || currentMode === 'advanced') {
-        loadModule('updatedshoe.glb', 'sole', ONSHAPE_FIX.sole, true); 
+        loadModule('updatedshoe.glb', 'sole', true); 
     } else if (currentMode === 'designer') {
-        loadModule('sole 1.gltf', 'sole', ONSHAPE_FIX.sole, false);
-        loadModule('upper.gltf', 'upper', ONSHAPE_FIX.upper, false);
-        loadModule('laces.glb', 'laces', ONSHAPE_FIX.laces, false); 
+        loadModule('sole 1.gltf', 'sole', false);
+        loadModule('upper.gltf', 'upper', false);
+        loadModule('laces.glb', 'laces', false); 
     }
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // SAFE FINALIZE METHOD (Runs ONLY when safely populated)
+    // Executes strictly after 100% of files load to prevent WebGL NaN crashes
     function finalizeEngineSetup() {
         if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
             shoe.updateMatrixWorld(true);
@@ -342,18 +362,20 @@ function init3DEnvironment() {
             let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
             let upperBox = new THREE.Box3().setFromObject(shoeModules.upper);
 
-            // Safe Math calculation
-            if (soleBox.max.y !== -Infinity && upperBox.min.y !== Infinity) {
-                let yOffset = soleBox.max.y - upperBox.min.y;
-                yOffset -= 0.05; // Sink upper slightly for a realistic seal
-                
-                shoeModules.upper.position.y += yOffset;
-                shoeModules.upper.updateMatrixWorld(true);
+            let soleHeight = soleBox.max.y - soleBox.min.y;
+            let upperHeight = upperBox.max.y - upperBox.min.y;
 
-                if (shoeModules.laces && shoeModules.laces.children.length > 0) {
-                    shoeModules.laces.position.y += yOffset;
-                    shoeModules.laces.updateMatrixWorld(true);
-                }
+            // Mathematical Lego Stacking: Snap the bottom of the upper to the top of the sole
+            let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.08; // -0.08 overlap for a clean seal
+
+            shoeModules.upper.position.y = stackY;
+            shoeModules.upper.updateMatrixWorld(true);
+
+            if (shoeModules.laces && shoeModules.laces.children.length > 0) {
+                let lacesBox = new THREE.Box3().setFromObject(shoeModules.laces);
+                let lacesHeight = lacesBox.max.y - lacesBox.min.y;
+                shoeModules.laces.position.y = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
+                shoeModules.laces.updateMatrixWorld(true);
             }
         }
 
@@ -411,16 +433,14 @@ function init3DEnvironment() {
         const hits = raycaster.intersectObjects(validMeshes, true);
 
         if (hoveredPart && hoveredPart !== activePart) {
-            if (currentMode === 'designer') hoveredPart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
-            else hoveredPart.material.emissive.setHex(0x000000);
+            hoveredPart.material.emissive.setHex(0x000000);
         }
         
         if (hits.length > 0) {
-            hoveredPart = currentMode === 'designer' ? hits[0].object.userData.parentModule : hits[0].object; 
+            hoveredPart = hits[0].object; 
             container.style.cursor = 'crosshair';
             if (hoveredPart !== activePart) {
-                if (currentMode === 'designer') hoveredPart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x222222); });
-                else hoveredPart.material.emissive.setHex(0x222222);
+                hoveredPart.material.emissive.setHex(0x222222);
             }
         } else {
             hoveredPart = null;
@@ -441,8 +461,7 @@ function init3DEnvironment() {
         const hits = raycaster.intersectObjects(validMeshes, true);
         
         if (hits.length > 0) {
-            let target = currentMode === 'designer' ? hits[0].object.userData.parentModule : hits[0].object;
-            selectPart(target);
+            selectPart(hits[0].object);
         }
     });
 
@@ -451,40 +470,32 @@ function init3DEnvironment() {
 
 function selectPart(target) {
     if(activePart) {
-        if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
-        else activePart.material.emissive.setHex(0x000000);
+        activePart.material.emissive.setHex(0x000000);
     }
     
     activePart = target; 
     
-    if (currentMode === 'designer') {
-        activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x555555); });
-        setTimeout(() => { if(activePart) activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x333333); }); }, 200);
-    } else {
-        activePart.material.emissive.setHex(0x555555);
-        setTimeout(() => { if(activePart) activePart.material.emissive.setHex(0x333333); }, 200);
-    }
+    activePart.material.emissive.setHex(0x555555);
+    setTimeout(() => { if(activePart) activePart.material.emissive.setHex(0x333333); }, 200);
 
     document.getElementById('instruction-text').style.display = 'none';
     document.getElementById('shared-tools').style.display = 'block';
     
-    let firstMesh = currentMode === 'designer' ? null : activePart;
-    if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh && !firstMesh) firstMesh = n; });
-    
-    if(firstMesh) document.getElementById('native-color-picker').value = "#" + firstMesh.material.color.getHexString();
+    document.getElementById('native-color-picker').value = "#" + activePart.material.color.getHexString();
     clearColorSelections();
     
     if(currentMode === 'advanced' || currentMode === 'designer') {
         document.getElementById('cad-sliders').style.display = 'block';
-        document.getElementById('scale-x').value = activePart.scale.x / (currentMode === 'designer' ? 1 : activePart.userData.baseScale.x);
-        document.getElementById('scale-y').value = activePart.scale.y / (currentMode === 'designer' ? 1 : activePart.userData.baseScale.y);
-        document.getElementById('scale-z').value = activePart.scale.z / (currentMode === 'designer' ? 1 : activePart.userData.baseScale.z);
+        document.getElementById('scale-x').value = activePart.scale.x / activePart.userData.baseScale.x;
+        document.getElementById('scale-y').value = activePart.scale.y / activePart.userData.baseScale.y;
+        document.getElementById('scale-z').value = activePart.scale.z / activePart.userData.baseScale.z;
         updateSliderText();
         runSafetyEngine(document.getElementById('scale-y').value, 'y');
     }
     
     const displayBox = document.getElementById('active-part-display');
-    let niceName = currentMode === 'designer' ? activePart.userData.category.toUpperCase() + " MODULE" : activePart.name.replace(/_/g, ' ');
+    let niceName = activePart.name.replace(/_/g, ' ');
+    if (niceName.includes('Mesh')) niceName = activePart.userData.category.toUpperCase() + " SECTION";
     displayBox.innerText = "EDITING: " + niceName;
     displayBox.classList.add('active-state');
 }
@@ -497,8 +508,8 @@ function designerStep(direction) {
     document.getElementById('ds-p3').classList.remove('active');
     document.getElementById('shared-tools').style.display = 'block';
 
-    let dropOffset = 10; 
-    if (shoe && shoe.scale.y) dropOffset = 10 / shoe.scale.y; 
+    let dropOffset = 8; 
+    if (shoe && shoe.scale.y) dropOffset = 8 / shoe.scale.y; 
 
     if(designerCurrentStep === 1) {
         document.getElementById('ds-p1').classList.add('active');
@@ -517,7 +528,8 @@ function designerStep(direction) {
         if (shoeModules.sole) {
             shoeModules.sole.visible = true;
             shoeModules.sole.position.y = shoeModules.sole.userData.basePos.y + dropOffset; 
-            selectPart(shoeModules.sole);
+            let first = null; shoeModules.sole.traverse(n => {if(n.isMesh && !first) first = n;});
+            if(first) selectPart(first);
         }
         if (shoeModules.upper) shoeModules.upper.visible = false;
         if (shoeModules.laces) shoeModules.laces.visible = false;
@@ -540,7 +552,8 @@ function designerStep(direction) {
         if (shoeModules.upper) {
             shoeModules.upper.visible = true;
             shoeModules.upper.position.y = shoeModules.upper.userData.basePos.y + dropOffset;
-            selectPart(shoeModules.upper);
+            let first = null; shoeModules.upper.traverse(n => {if(n.isMesh && !first) first = n;});
+            if(first) selectPart(first);
         }
     }
     else if (designerCurrentStep === 3) {
@@ -561,9 +574,13 @@ function designerStep(direction) {
         if (shoeModules.laces && shoeModules.laces.children.length > 0) {
             shoeModules.laces.visible = true;
             shoeModules.laces.position.y = shoeModules.laces.userData.basePos.y + dropOffset;
-            selectPart(shoeModules.laces);
+            let first = null; shoeModules.laces.traverse(n => {if(n.isMesh && !first) first = n;});
+            if(first) selectPart(first);
         } else {
-             if (shoeModules.upper) selectPart(shoeModules.upper);
+             if (shoeModules.upper) {
+                 let first = null; shoeModules.upper.traverse(n => {if(n.isMesh && !first) first = n;});
+                 if(first) selectPart(first);
+             }
         }
     }
     else if (designerCurrentStep > 3) {
@@ -578,12 +595,10 @@ window.simulateHighTop = (type, btn) => {
     btn.classList.add('selected');
     
     if(type === 'high') {
-        activePart.scale.y = 1.5;
-        activePart.userData.targetY += 0.8; 
+        activePart.scale.y = activePart.userData.baseScale.y * 1.5;
         showToast("Upper chassis extended to High Top profile.");
     } else {
-        activePart.scale.y = 1;
-        activePart.userData.targetY -= 0.8;
+        activePart.scale.y = activePart.userData.baseScale.y;
         showToast("Upper chassis restored to Low Top profile.");
     }
 };
@@ -592,14 +607,11 @@ window.applyScale = (axis, value) => {
     if(!activePart) return;
     const newScale = parseFloat(value);
     
-    if (currentMode === 'designer') activePart.scale[axis] = newScale;
-    else activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
-    
+    activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
     updateSliderText();
     
-    let isSole = currentMode === 'designer' ? activePart.userData.category === 'sole' : activePart.userData.category === 'sole';
-
-    if(isSole && axis === 'y') {
+    let cat = activePart.userData.category;
+    if(cat === 'sole' && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         const delta = (newScale - 1) * 0.4; 
         if (currentMode === 'designer') {
@@ -622,9 +634,8 @@ function updateSliderText() {
 
 function runSafetyEngine(scaleVal, axis) {
     const readout = document.getElementById('safety-readout');
-    let isSole = currentMode === 'designer' ? activePart.userData.category === 'sole' : activePart.userData.category === 'sole';
-
-    if(isSole && axis === 'y') {
+    let cat = activePart.userData.category;
+    if(cat === 'sole' && axis === 'y') {
         if(userActivity === 'running' && scaleVal < 0.8) {
             readout.className = "warning"; readout.innerHTML = "<b>STRUCTURAL ALERT:</b><br>Sole thickness too low for Distance Running."; return;
         } else if (userPronation === 'overpronation' && scaleVal < 1.05) {
@@ -640,15 +651,13 @@ function clearColorSelections() {
 }
 window.applyCuratedColor = (hex, element) => { 
     if(activePart) { 
-        if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.color.set(hex); });
-        else activePart.material.color.set(hex);
+        activePart.material.color.set(hex);
         clearColorSelections(); element.classList.add('selected'); 
     }
 };
 window.applyCustomColor = (hex) => { 
     if(activePart) { 
-        if (currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.color.set(hex); });
-        else activePart.material.color.set(hex);
+        activePart.material.color.set(hex);
         clearColorSelections(); document.getElementById('gradient-btn').classList.add('selected'); 
     }
 };
@@ -662,13 +671,9 @@ window.applyMaterial = (type, element) => {
     if (type === 'glossy') { r = 0.15; m = 0.4; p = 10; } 
     else if (type === 'foam') { r = 0.95; m = 0.0; p = 15; }
 
-    if (currentMode === 'designer') {
-        activePart.traverse(n => { if(n.isMesh) { n.material.roughness = r; n.material.metalness = m; }});
-        partMaterials[activePart.userData.category] = p; 
-    } else {
-        activePart.material.roughness = r; activePart.material.metalness = m;
-        partMaterials[activePart.name] = p;
-    }
+    activePart.material.roughness = r; 
+    activePart.material.metalness = m;
+    partMaterials[activePart.name] = p;
     calculatePrice();
 };
 
@@ -692,14 +697,9 @@ window.applyTexture = (type, element) => {
     element.classList.add('selected');
 
     let map = type === 'smooth' ? null : proceduralTextures[type];
-    
-    if (currentMode === 'designer') {
-        activePart.traverse(n => { if(n.isMesh) { n.material.bumpMap = map; if(map) n.material.bumpScale = 0.05; n.material.needsUpdate = true; } });
-    } else {
-        activePart.material.bumpMap = map;
-        if(map) activePart.material.bumpScale = 0.05;
-        activePart.material.needsUpdate = true;
-    }
+    activePart.material.bumpMap = map;
+    if(map) activePart.material.bumpScale = 0.05;
+    activePart.material.needsUpdate = true;
 };
 
 function calculatePrice() {
@@ -732,10 +732,7 @@ window.takeSnapshot = () => {
     const snapBtn = document.getElementById('snapshot-btn');
     panel.style.display = 'none'; snapBtn.style.display = 'none';
     
-    if(activePart) {
-        if(currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x000000); });
-        else activePart.material.emissive.setHex(0x000000);
-    }
+    if(activePart) activePart.material.emissive.setHex(0x000000);
 
     setTimeout(() => {
         renderer.render(scene, camera);
@@ -743,11 +740,7 @@ window.takeSnapshot = () => {
         link.download = 'Footlabs_Design.png'; link.href = renderer.domElement.toDataURL('image/png'); link.click();
         
         panel.style.display = 'flex'; snapBtn.style.display = 'flex';
-        
-        if(activePart) {
-            if(currentMode === 'designer') activePart.traverse(n => { if(n.isMesh) n.material.emissive.setHex(0x333333); });
-            else activePart.material.emissive.setHex(0x333333);
-        }
+        if(activePart) activePart.material.emissive.setHex(0x333333);
     }, 150);
 };
 
