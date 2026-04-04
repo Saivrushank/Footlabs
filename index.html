@@ -494,7 +494,7 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // 1. ZER0-OUT ORIGINS & FIX SHARK-FIN 
+            // 1. ZER0-OUT ORIGINS AND FIX SHARK-FIN 
             if (!isMonolithic) {
                 if (category === 'upper' || category === 'laces') {
                     // STAND UP (X) AND SPIN FORWARD (Z)
@@ -579,29 +579,9 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // 🧠 BULLETPROOF LOCAL MATH STACKER
-    function updateStackTargets() {
-        if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
-        
-        let currentSoleScale = 1;
-        let firstSoleMesh = selectableParts.find(p => p.userData.category === 'sole');
-        if (firstSoleMesh) currentSoleScale = firstSoleMesh.scale.y;
-
-        let soleH = shoeModules.sole.userData.localHeight * currentSoleScale;
-        let upperH = shoeModules.upper.userData.localHeight;
-        
-        let stackY = (soleH / 2) + (upperH / 2) - 0.08; 
-        
-        shoeModules.upper.userData.targetY = stackY;
-        
-        if (shoeModules.laces && shoeModules.laces.userData.localHeight !== undefined) {
-            let lacesH = shoeModules.laces.userData.localHeight;
-            shoeModules.laces.userData.targetY = stackY + (upperH / 2) + (lacesH / 2) - 0.05;
-        }
-    }
-
     function finalizeEngineSetup() {
         
+        // Scale immediately so bounding boxes are final
         const combinedBox = new THREE.Box3().setFromObject(shoe);
         if(!combinedBox.isEmpty()) {
             const center = combinedBox.getCenter(new THREE.Vector3());
@@ -618,31 +598,23 @@ function init3DEnvironment() {
             }
         }
 
+        // Calculate Stack Targets AFTER scaling
         if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
             updateStackTargets();
             shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
             if(shoeModules.laces && shoeModules.laces.children[0]) shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
         }
 
-        if (currentMode === 'designer') {
-            Object.values(shoeModules).forEach(mod => {
-                if (mod) {
-                    mod.userData.basePos = mod.position.clone();
-                    if(mod.userData.targetY === undefined) mod.userData.targetY = mod.position.y;
-                }
-            });
-            selectableParts.forEach(p => {
-                p.userData.basePos = p.position.clone();
-                p.userData.targetY = p.position.y;
-                if (p.userData.category !== 'sole') p.visible = false; 
-            });
-        } else {
-            selectableParts.forEach(p => {
-                p.userData.basePos = p.position.clone();
-                p.userData.targetY = p.position.y;
-                p.visible = true; 
-            });
-        }
+        // Lock Base Positions and handle initial visibility
+        selectableParts.forEach(p => {
+            p.userData.basePos = p.position.clone();
+            p.userData.targetY = p.position.y;
+            if (currentMode === 'designer' && p.userData.category !== 'sole') {
+                p.visible = false; 
+            } else {
+                p.visible = true; // Template Mode Bug Fixed
+            }
+        });
 
         const loadScreen = document.getElementById('loading-screen');
         loadScreen.style.opacity = '0';
@@ -699,6 +671,39 @@ function init3DEnvironment() {
     }
 }
 
+// 🧠 GLOBALLY SCOPED CALCULATOR: Fixes the "updateStackTargets is not defined" error!
+function updateStackTargets() {
+    if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
+    
+    // Grab the global size ratio of the scene
+    let currentScale = shoe.scale.y || 1;
+
+    shoeModules.sole.updateMatrixWorld(true);
+    let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
+    
+    let rawUpper = shoeModules.upper.children[0];
+    if (!rawUpper) return;
+    rawUpper.updateMatrixWorld(true);
+    let upperBox = new THREE.Box3().setFromObject(rawUpper);
+    
+    // Strip global scaling to calculate pure local heights
+    let soleHeightLocal = (soleBox.max.y - soleBox.min.y) / currentScale;
+    let upperHeightLocal = (upperBox.max.y - upperBox.min.y) / currentScale;
+    
+    // Exact mathematical stacking formula
+    let stackY = (soleHeightLocal / 2) + (upperHeightLocal / 2) - 0.08; 
+    
+    shoeModules.upper.userData.targetY = stackY;
+    
+    if (shoeModules.laces && shoeModules.laces.children[0]) {
+        let rawLaces = shoeModules.laces.children[0];
+        rawLaces.updateMatrixWorld(true);
+        let lacesBox = new THREE.Box3().setFromObject(rawLaces);
+        let lacesHeightLocal = (lacesBox.max.y - lacesBox.min.y) / currentScale;
+        shoeModules.laces.userData.targetY = stackY + (upperHeightLocal / 2) + (lacesHeightLocal / 2) - 0.05;
+    }
+}
+
 function selectPart(target) {
     if(activePart) activePart.material.emissive.setHex(0x000000);
     activePart = target; 
@@ -736,7 +741,7 @@ function designerStep(direction) {
     document.getElementById('ds-p3').classList.remove('active');
     document.getElementById('shared-tools').style.display = 'block';
 
-    let dropOffset = 10; 
+    let dropOffset = 8; 
 
     if(designerCurrentStep === 1) {
         document.getElementById('ds-p1').classList.add('active');
@@ -752,6 +757,11 @@ function designerStep(direction) {
 
         showToast("Loading Modular Sole...");
         
+        if (shoeModules.sole) {
+            shoeModules.sole.userData.targetY = 0; 
+            shoeModules.sole.position.y = dropOffset; 
+        }
+
         let first = null;
         selectableParts.forEach(p => {
             if(p.userData.category === 'sole') {
@@ -778,8 +788,8 @@ function designerStep(direction) {
         
         showToast("Loading Modular Upper...");
 
+        // The wrapper group drops from the sky
         if (shoeModules.upper) {
-            updateStackTargets();
             shoeModules.upper.position.y = shoeModules.upper.userData.targetY + dropOffset; 
         }
 
@@ -854,10 +864,12 @@ window.applyScale = (axis, value) => {
     activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
     updateSliderText();
     
+    // Dynamically recalculate Stack Drop Zone if Sole Thickens
     if(currentMode === 'designer' && activePart.userData.parentModule === shoeModules.sole && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         updateStackTargets();
     } 
+    // Handle Template mode upward shifts
     else if (currentMode !== 'designer' && activePart.userData.category === 'sole' && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         const delta = (newScale - 1) * 0.4; 
@@ -995,6 +1007,7 @@ function animate() {
     
     if (currentMode === 'designer') {
         Object.values(shoeModules).forEach(mod => {
+            // Animate the wrapper group directly to targetY
             if (mod && mod.userData.targetY !== undefined) {
                 if (Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
                     mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
