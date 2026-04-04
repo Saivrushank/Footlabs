@@ -140,7 +140,7 @@
         .receipt-header p { margin: 5px 0 0 0; color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 1px;}
         .line-item { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 14px; color: #333;}
         .line-item.bold { font-weight: 700; color: #111; font-size: 16px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 20px;}
-        .btn-confirm { background: #e6a822; color: #000; width: 100%; padding: 18px; border: none; border-radius: 30px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; margin-top: 30px; transition: 0.2s;}
+        .btn-confirm { background: #e6a822; color: #000; width: 100%; padding: 18px; border: none; border-radius: 30px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; cursor: margin-top: 30px; transition: 0.2s;}
         .btn-confirm:hover { background: #111; color: #e6a822; }
         .btn-close { text-align: center; margin-top: 15px; font-size: 12px; color: #888; cursor: pointer; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;}
         .btn-close:hover { color: #111; }
@@ -150,203 +150,19 @@
 
     <div id="error-log"></div>
 
-    <div id="loading-screen" style="display: none;">
-        <div class="loader-logo">FOOTLABS STUDIO</div>
-        <div class="progress-bar-container"><div id="progress-bar"></div></div>
-    </div>
-
-    <div id="toast-container"></div>
-
-    <div id="onboarding">
-        <div class="logo-large">FOOTLABS</div>
-        <div class="wizard-container">
-            <div class="wizard-step active" id="wiz-1">
-                <div class="question-title">Let's build your profile.</div>
-                <div class="question-sub">Basic biomechanical data helps us optimize the chassis.</div>
-                <div class="input-row">
-                    <div class="input-group"><label>Age</label><input type="number" placeholder="e.g. 28"></div>
-                    <div class="input-group"><label>Gender</label><select><option>Male</option><option>Female</option><option>Neutral</option></select></div>
-                </div>
-                <button class="btn-next" onclick="nextStep(1, 2)">Continue</button>
-            </div>
-            <div class="wizard-step" id="wiz-2">
-                <div class="question-title">What is your exact fit?</div>
-                <div class="question-sub">Precision engineering requires precise measurements.</div>
-                <div class="input-row">
-                    <div class="input-group"><label>Foot Size (UK)</label><input type="number" value="8" step="0.5"></div>
-                    <div class="input-group"><label>Foot Width</label><select><option>Standard (D)</option><option>Wide (EE)</option><option>Narrow (B)</option></select></div>
-                </div>
-                <button class="btn-next" onclick="nextStep(2, 3)">Continue</button>
-            </div>
-            <div class="wizard-step" id="wiz-3">
-                <div class="question-title">How will you move?</div>
-                <div class="question-sub">Select your primary activity and gait profile.</div>
-                <div class="input-row">
-                    <div class="input-group"><label>Activity</label><select id="usr-activity"><option value="casual">Everyday Casual</option><option value="running">Distance Running</option><option value="athletics">Athletics</option></select></div>
-                    <div class="input-group"><label>Pronation</label><select id="usr-pronation"><option value="neutral">Neutral</option><option value="overpronation">Overpronation</option></select></div>
-                </div>
-                <button class="btn-next" onclick="nextStep(3, 4)">Continue</button>
-            </div>
-            <div class="wizard-step" id="wiz-4">
-                <div class="question-title">Select Engine Mode</div>
-                <div class="question-sub">Choose your customization experience.</div>
-                <div class="cards-container">
-                    <div class="mode-card" onclick="launchStudio('template')">
-                        <h3>TEMPLATE</h3>
-                        <p>Configure colors & materials on predefined models.</p>
-                    </div>
-                    <div class="mode-card" onclick="launchStudio('advanced')">
-                        <h3>ADVANCED CAD</h3>
-                        <p>Unlock parametric sizing and surface details.</p>
-                    </div>
-                    <div class="mode-card" onclick="launchStudio('designer')">
-                        <h3>MODULAR BUILD</h3>
-                        <p>Guided assembly using your custom Onshape modules.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="progress-dots">
-            <div class="dot active" id="dot-1"></div>
-            <div class="dot" id="dot-2"></div>
-            <div class="dot" id="dot-3"></div>
-            <div class="dot" id="dot-4"></div>
-        </div>
-    </div>
-
-    <div id="workspace">
-        <div id="canvas-container"></div>
-        
-        <div class="snapshot-btn" id="snapshot-btn" onclick="takeSnapshot()" title="Save Image">
-            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
-        </div>
-        
-        <div id="configurator-panel">
-            <div class="panel-header">
-                <h1>DESIGN YOUR OWN</h1>
-                <div class="mode-badge" id="mode-badge">TEMPLATE MODE</div>
-                
-                <div id="designer-header">
-                    <div id="designer-progress">
-                        <div class="ds-step active" id="ds-p1"></div>
-                        <div class="ds-step" id="ds-p2"></div>
-                        <div class="ds-step" id="ds-p3"></div>
-                    </div>
-                    <div id="ds-title">1. Construct Sole</div>
-                </div>
-
-                <div id="active-part-display">Waiting for selection...</div>
-            </div>
-
-            <div id="instruction-text">
-                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="margin-bottom:10px;">
-                    <circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path>
-                </svg><br>
-                <span style="color:#111;"><b>Right-Click and Drag</b> anywhere to rotate.</span><br><br>
-                <span id="click-instruction"><b>Left-Click</b> directly on any part to customize it.</span>
-            </div>
-
-            <div id="shared-tools" class="tool-panel">
-                
-                <div id="ds-upper-tools" style="display:none; margin-bottom: 25px; padding-bottom: 25px; border-bottom: 1px solid #eee;">
-                    <div class="option-label" style="color:#e6a822;">Structural Cut</div>
-                    <div class="mat-grid" style="margin-bottom:0;">
-                        <button class="mat-btn selected" onclick="simulateHighTop('low', this)">Low Top</button>
-                        <button class="mat-btn" onclick="simulateHighTop('high', this)">High Top</button>
-                    </div>
-                </div>
-
-                <div class="option-label">1. Material Physics & Textures</div>
-                <div class="mat-grid">
-                    <button class="mat-btn selected" onclick="applyMaterial('standard', this)">Matte Leather</button>
-                    <button class="mat-btn" onclick="applyMaterial('foam', this)">Suede / Foam</button>
-                    <button class="mat-btn" onclick="applyMaterial('glossy', this)">Glossy Poly</button>
-                </div>
-                
-                <div class="mat-grid" id="advanced-textures" style="display:none; margin-top:-20px;">
-                    <button class="mat-btn selected" onclick="applyTexture('smooth', this)">Smooth</button>
-                    <button class="mat-btn" onclick="applyTexture('carbon', this)">Carbon Mesh</button>
-                    <button class="mat-btn" onclick="applyTexture('ribbed', this)">Ribbed Grip</button>
-                </div>
-
-                <div class="color-section">
-                    <div class="option-label">2. Curated Colors</div>
-                    <div class="color-grid" id="curated-colors">
-                        <div class="color-swatch bg-white" onclick="applyCuratedColor('#ffffff', this)"></div>
-                        <div class="color-swatch bg-black" onclick="applyCuratedColor('#1a1a1a', this)"></div>
-                        <div class="color-swatch bg-sail" onclick="applyCuratedColor('#f4f0e6', this)"></div>
-                        <div class="color-swatch bg-red" onclick="applyCuratedColor('#c92a2a', this)"></div>
-                        <div class="color-swatch bg-blue" onclick="applyCuratedColor('#1864ab', this)"></div>
-                        <div class="color-swatch bg-gum" onclick="applyCuratedColor('#d0b084', this)"></div>
-                    </div>
-                </div>
-
-                <div class="color-section">
-                    <div class="option-label">3. Custom Spectrum</div>
-                    <div class="custom-color-container" id="gradient-btn">
-                        <div class="custom-color-text">Open Color Wheel</div>
-                        <input type="color" id="native-color-picker" oninput="applyCustomColor(this.value)">
-                    </div>
-                </div>
-
-                <div id="cad-sliders" style="display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px;">
-                    <div class="option-label">Parametric Manipulation</div>
-                    <div class="slider-group">
-                        <label><span>X-Axis (Width)</span> <span id="val-x">1.00</span></label>
-                        <input type="range" id="scale-x" min="0.8" max="1.5" step="0.05" value="1" oninput="applyScale('x', this.value)">
-                    </div>
-                    <div class="slider-group">
-                        <label><span>Y-Axis (Thickness)</span> <span id="val-y">1.00</span></label>
-                        <input type="range" id="scale-y" min="0.5" max="2.0" step="0.05" value="1" oninput="applyScale('y', this.value)">
-                    </div>
-                    <div class="slider-group">
-                        <label><span>Z-Axis (Length)</span> <span id="val-z">1.00</span></label>
-                        <input type="range" id="scale-z" min="0.9" max="1.2" step="0.05" value="1" oninput="applyScale('z', this.value)">
-                    </div>
-                    <div id="safety-readout">SYS.CHECK: Biomechanics Nominal.<br>Structure within safe limits.</div>
-                </div>
-
-                <div id="designer-nav" class="ds-controls" style="display:none;">
-                    <button class="ds-btn" id="ds-prev" style="display:none;" onclick="designerStep(-1)">Back</button>
-                    <button class="ds-btn primary" id="ds-next" onclick="designerStep(1)">Next Phase</button>
-                </div>
-            </div>
-
-            <div style="flex-grow: 1;"></div>
-            
-            <div class="checkout-area" id="checkout-footer">
-                <div class="price-display">
-                    <span>Total Price</span>
-                    <span id="price-tag">$120</span>
-                </div>
-                <button class="checkout-btn" onclick="showCheckout()">Finish Design</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="checkout-modal">
-        <div class="receipt-card">
-            <div class="receipt-header">
-                <h2>FOOTLABS</h2>
-                <p>Order Summary</p>
-            </div>
-            
-            <div class="line-item"><span>Base Chassis</span><span>$120.00</span></div>
-            <div class="line-item" id="receipt-materials"><span>Material Upcharges</span><span>$0.00</span></div>
-            <div class="line-item" id="receipt-advanced" style="display:none; color: #e6a822;"><span>Advanced CAD Engine Fee</span><span>$50.00</span></div>
-            <div class="line-item" id="receipt-designer" style="display:none; color: #e6a822;"><span>Bespoke Design Fee</span><span>$80.00</span></div>
-            
-            <div class="line-item bold"><span>Total Due</span><span id="receipt-total">$120.00</span></div>
-            
-            <button class="btn-confirm" onclick="alert('Order Sent to Manufacturing!')">Confirm & Build</button>
-            <div class="btn-close" onclick="closeCheckout()">Return to Studio</div>
-        </div>
-    </div>
-
 <script>
 // ==========================================
-// 🚨 ON-SCREEN DIAGNOSTIC LOGGER 🚨
+// 🛠️ ONSHAPE ALIGNMENT CONTROLS 🛠️
+// If the shoe loads but looks crossed like a plus sign (+), 
+// change the y or z values below to Math.PI / 2 or -Math.PI / 2
 // ==========================================
+const ONSHAPE_ALIGN = {
+    'sole':  { x: 0, y: 0, z: 0 },
+    'upper': { x: -Math.PI / 2, y: 0, z: 0 }, // Adjust Y or Z here if crossed
+    'laces': { x: -Math.PI / 2, y: 0, z: 0 }  // Adjust Y or Z here if crossed
+};
+// ==========================================
+
 function triggerRedAlert(message) {
     const log = document.getElementById('error-log');
     log.style.display = 'block';
@@ -494,24 +310,29 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // 🧠 RESTORED EXACT ALIGNMENT MATH FROM YOUR PREVIOUS SUCCESS
+            // 🧠 RESTORED YOUR EXACT MATH: Zeroes Origins securely
             if (!isMonolithic) {
-                if (category === 'upper' || category === 'laces') {
-                    // Only flip X. Reverted the extra Z rotation that broke alignment.
-                    rawGroup.rotation.x = -Math.PI / 2; 
-                }
+                // 1. Apply Alignments
+                rawGroup.rotation.x = ONSHAPE_ALIGN[category].x;
+                rawGroup.rotation.y = ONSHAPE_ALIGN[category].y;
+                rawGroup.rotation.z = ONSHAPE_ALIGN[category].z;
                 rawGroup.updateMatrixWorld(true);
 
+                // 2. Measure Center
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
                 box.getCenter(center);
 
+                // 3. Move to Origin
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
 
+                // 4. Wrap securely
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
+                // 🚨 CRITICAL FIX: Ensures wrapper has default size to prevent Crash! 🚨
+                wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1); 
                 wrapper.add(rawGroup);
 
                 shoeModules[category] = wrapper;
@@ -519,6 +340,7 @@ function init3DEnvironment() {
             } else {
                 rawGroup.userData.category = category;
                 rawGroup.userData.name = category.toUpperCase();
+                rawGroup.userData.baseScale = rawGroup.scale.clone();
                 shoeModules[category] = rawGroup;
                 shoe.add(rawGroup);
             }
@@ -551,12 +373,8 @@ function init3DEnvironment() {
         }, undefined, (e) => {
             if (filename === 'laces.glb') {
                 console.warn('No laces found. Skipping gracefully.');
-                let emptyLaces = new THREE.Group();
-                emptyLaces.userData.category = 'laces';
-                shoeModules['laces'] = emptyLaces;
-                shoe.add(emptyLaces);
             } else {
-                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>. Check your GitHub repository 'models' folder.");
+                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>.");
             }
             checkAllLoaded();
         });
@@ -575,14 +393,7 @@ function init3DEnvironment() {
     
     function finalizeEngineSetup() {
         
-        // DYNAMIC STACKING: Calculate gap mathematically based on wrapper sizes!
-        if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
-            updateStackTargets();
-            // Snap them initially so the overall shoe bounding box scales cleanly
-            shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
-            if(shoeModules.laces) shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
-        }
-
+        // Final Global Scaling 
         const combinedBox = new THREE.Box3().setFromObject(shoe);
         if(!combinedBox.isEmpty()) {
             const center = combinedBox.getCenter(new THREE.Vector3());
@@ -599,7 +410,14 @@ function init3DEnvironment() {
             }
         }
 
-        // SET BASE POSITIONS & HIDE UNTIL PHASE 2
+        // Setup the Drop Targets
+        if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
+            updateStackTargets();
+            shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
+            if(shoeModules.laces) shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
+        }
+
+        // Set Base Positions and Hiding
         selectableParts.forEach(p => {
             p.userData.basePos = p.position.clone();
             p.userData.targetY = p.position.y;
@@ -607,7 +425,7 @@ function init3DEnvironment() {
             if (currentMode === 'designer' && p.userData.category !== 'sole') {
                 p.visible = false; 
             } else {
-                p.visible = true;
+                p.visible = true; 
             }
         });
 
@@ -666,32 +484,31 @@ function init3DEnvironment() {
     }
 }
 
-// 🧠 GLOBALLY SCOPED CALCULATOR: Safe and Unbreakable!
+// 🧠 THE HEIGHT CALCULATOR
 function updateStackTargets() {
     if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
+    
+    let currentScale = shoe.scale.y || 1;
 
     shoeModules.sole.updateMatrixWorld(true);
     let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
+    let upperBox = new THREE.Box3().setFromObject(shoeModules.upper);
     
-    // Target the raw group inside the wrapper to find true height
-    let rawUpper = shoeModules.upper.children[0];
-    if (!rawUpper) return;
-    rawUpper.updateMatrixWorld(true);
-    let upperBox = new THREE.Box3().setFromObject(rawUpper);
+    let soleH = (soleBox.max.y - soleBox.min.y) / currentScale;
+    let upperH = (upperBox.max.y - upperBox.min.y) / currentScale;
     
-    let soleHeight = soleBox.max.y - soleBox.min.y;
-    let upperHeight = upperBox.max.y - upperBox.min.y;
-    
-    let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.08; 
+    if (!isFinite(soleH) || !isFinite(upperH)) return;
+
+    let stackY = (soleH / 2) + (upperH / 2) - 0.08; 
     
     shoeModules.upper.userData.targetY = stackY;
     
-    if (shoeModules.laces && shoeModules.laces.children.length > 0) {
-        let rawLaces = shoeModules.laces.children[0];
-        rawLaces.updateMatrixWorld(true);
-        let lacesBox = new THREE.Box3().setFromObject(rawLaces);
-        let lacesHeight = lacesBox.max.y - lacesBox.min.y;
-        shoeModules.laces.userData.targetY = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
+    if (shoeModules.laces) {
+        let lacesBox = new THREE.Box3().setFromObject(shoeModules.laces);
+        let lacesH = (lacesBox.max.y - lacesBox.min.y) / currentScale;
+        if(isFinite(lacesH)) {
+            shoeModules.laces.userData.targetY = stackY + (upperH / 2) + (lacesH / 2) - 0.05;
+        }
     }
 }
 
@@ -712,6 +529,10 @@ function selectPart(target) {
         document.getElementById('cad-sliders').style.display = 'block';
         
         let targetMod = (currentMode === 'designer') ? activePart.userData.parentModule : activePart;
+        
+        // 🚨 SAFETY FALLBACK FOR CRASH: If no base scale exists, default to 1,1,1. 🚨
+        if(!targetMod.userData.baseScale) targetMod.userData.baseScale = new THREE.Vector3(1, 1, 1);
+        
         document.getElementById('scale-x').value = targetMod.scale.x / targetMod.userData.baseScale.x;
         document.getElementById('scale-y').value = targetMod.scale.y / targetMod.userData.baseScale.y;
         document.getElementById('scale-z').value = targetMod.scale.z / targetMod.userData.baseScale.z;
@@ -778,6 +599,7 @@ function designerStep(direction) {
         showToast("Loading Modular Upper...");
 
         if (shoeModules.upper) {
+            updateStackTargets();
             shoeModules.upper.position.y = shoeModules.upper.userData.targetY + dropOffset; 
         }
 
@@ -805,7 +627,7 @@ function designerStep(direction) {
         
         showToast("Loading Accessories...");
 
-        if (shoeModules.laces && shoeModules.laces.children.length > 0) {
+        if (shoeModules.laces) {
             shoeModules.laces.position.y = shoeModules.laces.userData.targetY + dropOffset; 
         }
 
@@ -836,13 +658,12 @@ window.simulateHighTop = (type, btn) => {
     
     if(type === 'high') {
         shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y * 1.5;
-        shoeModules.upper.userData.targetY += 0.8; 
         showToast("Upper chassis extended to High Top profile.");
     } else {
         shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y;
-        shoeModules.upper.userData.targetY -= 0.8;
         showToast("Upper chassis restored to Low Top profile.");
     }
+    updateStackTargets();
 };
 
 window.applyScale = (axis, value) => {
@@ -850,10 +671,11 @@ window.applyScale = (axis, value) => {
     const newScale = parseFloat(value);
     
     let targetMod = (currentMode === 'designer') ? activePart.userData.parentModule : activePart;
+    if(!targetMod.userData.baseScale) targetMod.userData.baseScale = new THREE.Vector3(1,1,1);
+    
     targetMod.scale[axis] = targetMod.userData.baseScale[axis] * newScale;
     updateSliderText();
     
-    // Dynamically recalculate Stack Drop Zone if Sole Thickens
     if(currentMode === 'designer' && targetMod === shoeModules.sole && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         updateStackTargets();
@@ -1014,7 +836,7 @@ function animate() {
     if(renderer && scene && camera) renderer.render(scene, camera);
 }
 
-// 🧠 RESIZE BUG FIX: Added safety checks to prevent 'aspect' error on slow loads!
+// 🧠 RESIZE CRASH FIX: Safe check
 window.addEventListener('resize', () => {
     const container = document.getElementById('canvas-container');
     if(!container || !camera || !renderer) return; 
@@ -1023,5 +845,6 @@ window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
 </script>
-</body>
+
+    </body>
 </html>
