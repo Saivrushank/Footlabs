@@ -481,11 +481,6 @@ function init3DEnvironment() {
 
     const loader = new THREE.GLTFLoader(manager);
 
-    // =========================================================================
-    // 🧠 THE INDEPENDENT MODULE LOADER
-    // We load your original 'sole 1' and 'upper' independently.
-    // =========================================================================
-
     let expectedFiles = 0;
     let loadedFiles = 0;
 
@@ -499,9 +494,13 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // 1. ZER0-OUT ORIGINS: Turn Onshape files into perfectly centered Lego blocks.
+            // 1. ZER0-OUT ORIGINS & FIX ONSHAPE PLANES
             if (!isMonolithic) {
-                if (category === 'upper' || category === 'laces') rawGroup.rotation.x = -Math.PI / 2;
+                if (category === 'upper' || category === 'laces') {
+                    // X stands it up. Z spins it to face forward.
+                    rawGroup.rotation.x = -Math.PI / 2;
+                    rawGroup.rotation.z = -Math.PI / 2; // <--- ADDED THIS TO FIX THE SHARK FIN
+                }
                 rawGroup.updateMatrixWorld(true);
 
                 let box = new THREE.Box3().setFromObject(rawGroup);
@@ -837,9 +836,11 @@ window.simulateHighTop = (type, btn) => {
     
     if(type === 'high') {
         activePart.scale.y = activePart.userData.baseScale.y * 1.5;
+        activePart.userData.targetY += 0.8; 
         showToast("Upper chassis extended to High Top profile.");
     } else {
         activePart.scale.y = activePart.userData.baseScale.y;
+        activePart.userData.targetY -= 0.8;
         showToast("Upper chassis restored to Low Top profile.");
     }
 };
@@ -981,15 +982,11 @@ window.takeSnapshot = () => {
 function animate() {
     requestAnimationFrame(animate);
     
-    if (currentMode === 'designer') {
-        Object.values(shoeModules).forEach(mod => {
-            if (mod && mod.position.y !== undefined && mod.userData.targetY !== undefined) {
-                if (Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
-                    mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
-                }
-            }
-        });
-    }
+    selectableParts.forEach(p => {
+        if (p.visible !== false && Math.abs(p.position.y - p.userData.targetY) > 0.005) {
+            p.position.y += (p.userData.targetY - p.position.y) * 0.15;
+        }
+    });
     
     if(controls) controls.update(); 
     if(renderer && scene && camera) renderer.render(scene, camera);
