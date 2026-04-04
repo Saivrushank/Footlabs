@@ -481,10 +481,10 @@ function init3DEnvironment() {
 
     // =========================================================================
     // 🧠 THE VERSION-BRANCH LOADER
-    // Designer uses 'full_shoe.glb' | Template/Advanced uses 'updatedshoe.glb'
+    // Designer uses 'full_shoe.gltf' | Template/Advanced uses 'updatedshoe.glb'
     // =========================================================================
     
-    let modelFileToLoad = (currentMode === 'designer') ? 'full_shoe.glb' : 'updatedshoe.glb';
+    let modelFileToLoad = (currentMode === 'designer') ? 'full_shoe.gltf' : 'updatedshoe.glb';
     
     loader.load('models/' + modelFileToLoad, (gltf) => {
         let rawGroup = gltf.scene;
@@ -882,7 +882,6 @@ function animate() {
             }
         });
     }
-    // FIXED: Template mode is completely static, preventing the explosion bug!
     
     if(controls) controls.update(); 
     if(renderer && scene && camera) renderer.render(scene, camera);
