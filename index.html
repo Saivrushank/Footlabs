@@ -201,7 +201,7 @@
                     </div>
                     <div class="mode-card" onclick="launchStudio('designer')">
                         <h3>MODULAR BUILD</h3>
-                        <p>Guided assembly using your fully assembled design.</p>
+                        <p>Guided assembly using your custom Onshape modules.</p>
                     </div>
                 </div>
             </div>
@@ -368,6 +368,8 @@ let basePrice = 120, partMaterials = {};
 let proceduralTextures = {}; 
 let designerCurrentStep = 1;
 
+let shoeModules = { sole: null, upper: null, laces: null };
+
 function showToast(message) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
@@ -480,108 +482,115 @@ function init3DEnvironment() {
     const loader = new THREE.GLTFLoader(manager);
 
     // =========================================================================
-    // 🧠 MULTI-BRANCH LOADER & 2-FILE DATA TRANSFER SYSTEM
-    // Designer uses 'sole 1.gltf' AND 'full_shoe.gltf'
-    // Template/Advanced uses 'updatedshoe.glb'
+    // 🧠 THE INDEPENDENT MODULE LOADER
+    // We load your original 'sole 1' and 'upper' independently.
     // =========================================================================
-    
-    let modelFiles = [];
-    if (currentMode === 'designer') {
-        modelFiles = [
-            {file: 'sole 1.gltf', key: 'sole1'},
-            {file: 'full_shoe.gltf', key: 'fullShoe'}
-        ];
-    } else {
-        modelFiles = [ {file: 'updatedshoe.glb', key: 'template'} ];
-    }
 
-    let expectedFiles = modelFiles.length;
+    let expectedFiles = 0;
     let loadedFiles = 0;
-    let loadedModels = {};
 
-    modelFiles.forEach(mf => {
-        loader.load('models/' + mf.file, (gltf) => {
-            loadedModels[mf.key] = gltf.scene;
-            loadedFiles++;
-            if (loadedFiles === expectedFiles) finalizeEngineSetup();
+    const checkAllLoaded = () => {
+        loadedFiles++;
+        if (loadedFiles === expectedFiles) finalizeEngineSetup();
+    };
+
+    const loadModule = (filename, category, isMonolithic = false) => {
+        expectedFiles++;
+        loader.load('models/' + filename, (gltf) => {
+            let rawGroup = gltf.scene;
+            
+            // 1. ZER0-OUT ORIGINS: Turn Onshape files into perfectly centered Lego blocks.
+            if (!isMonolithic) {
+                if (category === 'upper' || category === 'laces') rawGroup.rotation.x = -Math.PI / 2;
+                rawGroup.updateMatrixWorld(true);
+
+                let box = new THREE.Box3().setFromObject(rawGroup);
+                let center = new THREE.Vector3();
+                box.getCenter(center);
+
+                rawGroup.position.set(-center.x, -center.y, -center.z);
+                rawGroup.updateMatrixWorld(true);
+
+                let wrapper = new THREE.Group();
+                wrapper.userData.category = category;
+                wrapper.userData.name = category.toUpperCase();
+                wrapper.add(rawGroup);
+
+                shoeModules[category] = wrapper;
+                shoe.add(wrapper);
+            } else {
+                rawGroup.userData.category = category;
+                rawGroup.userData.name = category.toUpperCase();
+                shoeModules[category] = rawGroup;
+                shoe.add(rawGroup);
+            }
+
+            let targetGroup = isMonolithic ? rawGroup : shoeModules[category];
+            
+            targetGroup.traverse(node => {
+                if(node.isMesh) {
+                    node.castShadow = true; node.receiveShadow = true;
+                    let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
+                    node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
+                    node.userData.baseScale = node.scale.clone();
+                    node.userData.parentModule = targetGroup; 
+                    
+                    if (isMonolithic) {
+                        let n = node.name.toUpperCase();
+                        if(n.includes('SOLE') || n.includes('BOTTOM')) node.userData.category = 'sole';
+                        else if(n.includes('LACE') || n.includes('AGLET')) node.userData.category = 'laces';
+                        else node.userData.category = 'upper';
+                    } else {
+                        node.userData.category = category;
+                    }
+                    selectableParts.push(node); 
+                }
+            });
+
+            partMaterials[category] = 0; 
+            checkAllLoaded();
+            
         }, undefined, (e) => {
-            triggerRedAlert("404 ERROR: Could not find <b>" + mf.file + "</b>. Check your GitHub repository 'models' folder. Make sure the capital letters and spaces match exactly.");
+            if (filename === 'laces.glb') {
+                console.warn('No laces found. Skipping gracefully.');
+                let emptyLaces = new THREE.Group();
+                emptyLaces.userData.category = 'laces';
+                shoeModules['laces'] = emptyLaces;
+                shoe.add(emptyLaces);
+            } else {
+                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>. Check your GitHub repository 'models' folder.");
+            }
+            checkAllLoaded();
         });
-    });
+    };
+
+    // --- ARCHITECTURE BRANCHING ---
+    if (currentMode === 'template' || currentMode === 'advanced') {
+        loadModule('updatedshoe.glb', 'sole', true); 
+    } else if (currentMode === 'designer') {
+        loadModule('sole 1.gltf', 'sole', false);
+        loadModule('upper.gltf', 'upper', false);
+        loadModule('laces.glb', 'laces', false); 
+    }
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
     function finalizeEngineSetup() {
         
-        if (currentMode === 'designer') {
-            let sole1 = loadedModels['sole1'];
-            let fullShoe = loadedModels['fullShoe'];
-            if (!sole1 || !fullShoe) return;
-
-            // --- 1. Process 'sole 1.gltf' (Sandbox Sole) ---
-            sole1.traverse(n => {
-                if(n.isMesh) {
-                    n.castShadow = true; n.receiveShadow = true;
-                    n.material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
-                    n.userData.baseScale = n.scale.clone();
-                    n.userData.parentModule = sole1;
-                    n.userData.category = 's1_sole';
-                    selectableParts.push(n);
-                }
-            });
-            shoe.add(sole1);
-
-            // --- 2. Process 'full_shoe.gltf' (Auto-Height Scanner) ---
-            fullShoe.updateMatrixWorld(true);
-            let fsMeshes = [];
-            fullShoe.traverse(n => { if(n.isMesh) fsMeshes.push(n); });
-            
-            fsMeshes.sort((a,b) => new THREE.Box3().setFromObject(a).min.y - new THREE.Box3().setFromObject(b).min.y);
-
-            fsMeshes.forEach((n, index) => {
-                n.castShadow = true; n.receiveShadow = true;
-                let c = n.material && n.material.color ? n.material.color : 0xffffff;
-                n.material = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
-                n.userData.baseScale = n.scale.clone();
-                n.userData.parentModule = fullShoe;
-                
-                if (index === 0) n.userData.category = 'fs_sole';
-                else if (index === fsMeshes.length - 1 && fsMeshes.length > 2) n.userData.category = 'fs_laces';
-                else n.userData.category = 'fs_upper';
-                
-                selectableParts.push(n);
-            });
-            shoe.add(fullShoe);
-
-        } else {
-            // --- 3. Process 'updatedshoe.glb' (Template/Advanced) ---
-            let template = loadedModels['template'];
-            if(!template) return;
-            template.traverse(n => {
-                if(n.isMesh) {
-                    n.castShadow = true; n.receiveShadow = true;
-                    let c = n.material && n.material.color ? n.material.color : 0xffffff;
-                    n.material = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
-                    n.userData.baseScale = n.scale.clone();
-                    n.userData.parentModule = template;
-                    
-                    let name = n.name.toUpperCase();
-                    if(name.includes('SOLE')||name.includes('BOTTOM')) n.userData.category = 'sole';
-                    else if(name.includes('LACE')||name.includes('AGLET')) n.userData.category = 'laces';
-                    else n.userData.category = 'upper';
-                    
-                    selectableParts.push(n);
-                }
-            });
-            shoe.add(template);
+        // 2. DYNAMIC STACKING: Calculate gap mathematically like you did!
+        if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
+            updateStackTargets();
+            // Snap them initially so the overall shoe bounding box scales cleanly
+            shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
+            if(shoeModules.laces) shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
         }
 
-        // --- Scale whatever is in the shoe group uniformly ---
         const combinedBox = new THREE.Box3().setFromObject(shoe);
         if(!combinedBox.isEmpty()) {
             const center = combinedBox.getCenter(new THREE.Vector3());
             const size = combinedBox.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z);
+            
             if (maxDim > 0 && maxDim !== Infinity && !isNaN(maxDim)) {
                 const scale = 8 / maxDim;
                 shoe.scale.set(scale, scale, scale);
@@ -592,14 +601,15 @@ function init3DEnvironment() {
             }
         }
 
-        // --- Set base positions and initial visibility ---
+        // 3. SET BASE POSITIONS & HIDE UNTIL PHASE 2
         selectableParts.forEach(p => {
             p.userData.basePos = p.position.clone();
             p.userData.targetY = p.position.y;
-            if (currentMode === 'designer') {
+            
+            if (currentMode === 'designer' && p.userData.category !== 'sole') {
                 p.visible = false; 
             } else {
-                p.visible = true; // FIX: Template Mode explicitly restored!
+                p.visible = true; // Fixes Template Mode Bug!
             }
         });
 
@@ -608,11 +618,11 @@ function init3DEnvironment() {
         setTimeout(() => { 
             loadScreen.style.display = 'none'; 
             if(currentMode === 'designer') {
-                showToast("Studio locked to Two-Phase Transfer Engine.");
+                showToast("Studio locked to Dynamic Math Assembly.");
                 designerStep(0); 
             } else {
                 document.getElementById('instruction-text').style.display = 'block';
-                showToast(mode.toUpperCase() + " Mode Active.");
+                showToast(currentMode.toUpperCase() + " Mode Active.");
             }
         }, 500);
     }
@@ -687,6 +697,36 @@ function selectPart(target) {
     displayBox.classList.add('active-state');
 }
 
+// 🧠 CALCULATES EXACT GAP DYNAMICALLY
+function updateStackTargets() {
+    if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
+    
+    shoeModules.sole.updateMatrixWorld(true);
+    let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
+    
+    // We calculate from the raw meshes inside the wrapper to find their true height
+    let rawUpper = shoeModules.upper.children[0];
+    if (!rawUpper) return;
+    rawUpper.updateMatrixWorld(true);
+    let upperBox = new THREE.Box3().setFromObject(rawUpper);
+    
+    let soleHeight = soleBox.max.y - soleBox.min.y;
+    let upperHeight = upperBox.max.y - upperBox.min.y;
+    
+    let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.08; 
+    
+    shoeModules.upper.userData.targetY = stackY;
+    
+    if (shoeModules.laces && shoeModules.laces.children.length > 0) {
+        let rawLaces = shoeModules.laces.children[0];
+        rawLaces.updateMatrixWorld(true);
+        let lacesBox = new THREE.Box3().setFromObject(rawLaces);
+        let lacesHeight = lacesBox.max.y - lacesBox.min.y;
+        shoeModules.laces.userData.targetY = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
+    }
+}
+
+
 function designerStep(direction) {
     designerCurrentStep += direction;
     
@@ -713,10 +753,8 @@ function designerStep(direction) {
         
         let first = null;
         selectableParts.forEach(p => {
-            if(p.userData.category === 's1_sole') {
+            if(p.userData.category === 'sole') {
                 p.visible = true;
-                p.position.y = p.userData.basePos.y + dropOffset; 
-                p.userData.targetY = p.userData.basePos.y;        
                 if(!first) first = p;
             } else {
                 p.visible = false;
@@ -737,48 +775,21 @@ function designerStep(direction) {
         controls.target.set(-1.5, 1, 0);
         controls.update();
         
-        showToast("Syncing Sole Properties and Dropping Upper...");
+        showToast("Loading Modular Upper...");
 
-        // 🧠 DATA TRANSFER: Copy Phase 1 edits to Phase 2
-        let s1 = selectableParts.find(p => p.userData.category === 's1_sole');
-        let fs_sole = selectableParts.find(p => p.userData.category === 'fs_sole');
-
-        if (s1 && fs_sole) {
-            // Transfer Material
-            fs_sole.material.color.copy(s1.material.color);
-            fs_sole.material.roughness = s1.material.roughness;
-            fs_sole.material.metalness = s1.material.metalness;
-            fs_sole.material.bumpMap = s1.material.bumpMap;
-            if(s1.material.bumpMap) fs_sole.material.bumpScale = s1.material.bumpScale;
-
-            // Transfer Parametric Scale
-            let sx = s1.scale.x / s1.userData.baseScale.x;
-            let sy = s1.scale.y / s1.userData.baseScale.y;
-            let sz = s1.scale.z / s1.userData.baseScale.z;
-            fs_sole.scale.set( fs_sole.userData.baseScale.x * sx, fs_sole.userData.baseScale.y * sy, fs_sole.userData.baseScale.z * sz );
-            fs_sole.userData.targetY = fs_sole.userData.basePos.y; 
-
-            // Elevate Upper so it rides exactly on top of the modified sole
-            let deltaY = (sy - 1) * 0.4;
-            selectableParts.forEach(p => {
-                if (p.userData.category === 'fs_upper' || p.userData.category === 'fs_laces') {
-                    p.userData.targetY = p.userData.basePos.y + deltaY;
-                }
-            });
+        // NO DATA TRANSFER! The Upper just drops onto the existing customized sole!
+        if (shoeModules.upper) {
+            shoeModules.upper.position.y = shoeModules.upper.userData.targetY + dropOffset; 
         }
 
-        // Execute Swap
-        let firstUpper = null;
+        let first = null;
         selectableParts.forEach(p => {
-            if (p.userData.category === 's1_sole') {
-                p.visible = false; 
-            } else if (p.userData.category === 'fs_sole' || p.userData.category === 'fs_upper') {
+            if(p.userData.category === 'upper') {
                 p.visible = true;
-                if(p.userData.category === 'fs_upper') p.position.y = p.userData.targetY + dropOffset; 
-                if (p.userData.category === 'fs_upper' && !firstUpper) firstUpper = p;
+                if(!first) first = p;
             }
         });
-        if(firstUpper) selectPart(firstUpper);
+        if(first) selectPart(first);
     }
     else if (designerCurrentStep === 3) {
         document.getElementById('ds-p1').classList.add('active');
@@ -795,18 +806,21 @@ function designerStep(direction) {
         
         showToast("Loading Accessories...");
 
+        if (shoeModules.laces) {
+            shoeModules.laces.position.y = shoeModules.laces.userData.targetY + dropOffset; 
+        }
+
         let first = null;
         selectableParts.forEach(p => {
-            if(p.userData.category === 'fs_laces') {
+            if(p.userData.category === 'laces') {
                 p.visible = true;
-                p.position.y = p.userData.targetY + dropOffset;
                 if(!first) first = p;
             }
         });
         if(first) {
             selectPart(first);
         } else {
-             let u = selectableParts.find(p => p.userData.category === 'fs_upper');
+             let u = selectableParts.find(p => p.userData.category === 'upper');
              if(u) selectPart(u);
         }
     }
@@ -823,11 +837,9 @@ window.simulateHighTop = (type, btn) => {
     
     if(type === 'high') {
         activePart.scale.y = activePart.userData.baseScale.y * 1.5;
-        activePart.userData.targetY += 0.8; 
         showToast("Upper chassis extended to High Top profile.");
     } else {
         activePart.scale.y = activePart.userData.baseScale.y;
-        activePart.userData.targetY -= 0.8;
         showToast("Upper chassis restored to Low Top profile.");
     }
 };
@@ -839,17 +851,12 @@ window.applyScale = (axis, value) => {
     activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
     updateSliderText();
     
-    let cat = activePart.userData.category;
-    if((cat === 'sole' || cat === 'fs_sole') && axis === 'y') {
+    // If user thickens the sole, dynamically recalculate the Upper's target destination!
+    if(currentMode === 'designer' && activePart.userData.parentModule === shoeModules.sole && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
-        const delta = (newScale - 1) * 0.4; 
-        
-        selectableParts.forEach(node => {
-            if(node.userData.category === 'upper' || node.userData.category === 'fs_upper' || node.userData.category === 'laces' || node.userData.category === 'fs_laces') {
-                node.userData.targetY = node.userData.basePos.y + delta;
-            }
-        });
+        updateStackTargets();
     }
+    
     runSafetyEngine(newScale, axis);
 };
 
@@ -862,7 +869,7 @@ function updateSliderText() {
 function runSafetyEngine(scaleVal, axis) {
     const readout = document.getElementById('safety-readout');
     let cat = activePart.userData.category;
-    if(cat === 'sole' || cat === 's1_sole' || cat === 'fs_sole') {
+    if(cat === 'sole') {
         if(userActivity === 'running' && scaleVal < 0.8) {
             readout.className = "warning"; readout.innerHTML = "<b>STRUCTURAL ALERT:</b><br>Sole thickness too low for Distance Running."; return;
         } else if (userPronation === 'overpronation' && scaleVal < 1.05) {
@@ -974,11 +981,15 @@ window.takeSnapshot = () => {
 function animate() {
     requestAnimationFrame(animate);
     
-    selectableParts.forEach(p => {
-        if (p.visible !== false && Math.abs(p.position.y - p.userData.targetY) > 0.005) {
-            p.position.y += (p.userData.targetY - p.position.y) * 0.15;
-        }
-    });
+    if (currentMode === 'designer') {
+        Object.values(shoeModules).forEach(mod => {
+            if (mod && mod.position.y !== undefined && mod.userData.targetY !== undefined) {
+                if (Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
+                    mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
+                }
+            }
+        });
+    }
     
     if(controls) controls.update(); 
     if(renderer && scene && camera) renderer.render(scene, camera);
