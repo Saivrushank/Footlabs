@@ -150,18 +150,200 @@
 
     <div id="error-log"></div>
 
-<script>
-// ==========================================
-// 🛠️ ONSHAPE ALIGNMENT CONTROLS 🛠️
-// Z-axis rotation removed. Restored to perfect alignment.
-// ==========================================
-const ONSHAPE_ALIGN = {
-    'sole':  { x: 0, y: 0, z: 0 },
-    'upper': { x: -Math.PI / 2, y: 0, z: 0 }, 
-    'laces': { x: -Math.PI / 2, y: 0, z: 0 }  
-};
-// ==========================================
+    <div id="loading-screen" style="display: none;">
+        <div class="loader-logo">FOOTLABS STUDIO</div>
+        <div class="progress-bar-container"><div id="progress-bar"></div></div>
+    </div>
 
+    <div id="toast-container"></div>
+
+    <div id="onboarding">
+        <div class="logo-large">FOOTLABS</div>
+        <div class="wizard-container">
+            <div class="wizard-step active" id="wiz-1">
+                <div class="question-title">Let's build your profile.</div>
+                <div class="question-sub">Basic biomechanical data helps us optimize the chassis.</div>
+                <div class="input-row">
+                    <div class="input-group"><label>Age</label><input type="number" placeholder="e.g. 28"></div>
+                    <div class="input-group"><label>Gender</label><select><option>Male</option><option>Female</option><option>Neutral</option></select></div>
+                </div>
+                <button class="btn-next" onclick="nextStep(1, 2)">Continue</button>
+            </div>
+            <div class="wizard-step" id="wiz-2">
+                <div class="question-title">What is your exact fit?</div>
+                <div class="question-sub">Precision engineering requires precise measurements.</div>
+                <div class="input-row">
+                    <div class="input-group"><label>Foot Size (UK)</label><input type="number" value="8" step="0.5"></div>
+                    <div class="input-group"><label>Foot Width</label><select><option>Standard (D)</option><option>Wide (EE)</option><option>Narrow (B)</option></select></div>
+                </div>
+                <button class="btn-next" onclick="nextStep(2, 3)">Continue</button>
+            </div>
+            <div class="wizard-step" id="wiz-3">
+                <div class="question-title">How will you move?</div>
+                <div class="question-sub">Select your primary activity and gait profile.</div>
+                <div class="input-row">
+                    <div class="input-group"><label>Activity</label><select id="usr-activity"><option value="casual">Everyday Casual</option><option value="running">Distance Running</option><option value="athletics">Athletics</option></select></div>
+                    <div class="input-group"><label>Pronation</label><select id="usr-pronation"><option value="neutral">Neutral</option><option value="overpronation">Overpronation</option></select></div>
+                </div>
+                <button class="btn-next" onclick="nextStep(3, 4)">Continue</button>
+            </div>
+            <div class="wizard-step" id="wiz-4">
+                <div class="question-title">Select Engine Mode</div>
+                <div class="question-sub">Choose your customization experience.</div>
+                <div class="cards-container">
+                    <div class="mode-card" onclick="launchStudio('template')">
+                        <h3>TEMPLATE</h3>
+                        <p>Configure colors & materials on predefined models.</p>
+                    </div>
+                    <div class="mode-card" onclick="launchStudio('advanced')">
+                        <h3>ADVANCED CAD</h3>
+                        <p>Unlock parametric sizing and surface details.</p>
+                    </div>
+                    <div class="mode-card" onclick="launchStudio('designer')">
+                        <h3>MODULAR BUILD</h3>
+                        <p>Guided assembly using your custom GLB files.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="progress-dots">
+            <div class="dot active" id="dot-1"></div>
+            <div class="dot" id="dot-2"></div>
+            <div class="dot" id="dot-3"></div>
+            <div class="dot" id="dot-4"></div>
+        </div>
+    </div>
+
+    <div id="workspace">
+        <div id="canvas-container"></div>
+        
+        <div class="snapshot-btn" id="snapshot-btn" onclick="takeSnapshot()" title="Save Image">
+            <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+        </div>
+        
+        <div id="configurator-panel">
+            <div class="panel-header">
+                <h1>DESIGN YOUR OWN</h1>
+                <div class="mode-badge" id="mode-badge">TEMPLATE MODE</div>
+                
+                <div id="designer-header">
+                    <div id="designer-progress">
+                        <div class="ds-step active" id="ds-p1"></div>
+                        <div class="ds-step" id="ds-p2"></div>
+                        <div class="ds-step" id="ds-p3"></div>
+                    </div>
+                    <div id="ds-title">1. Construct Sole</div>
+                </div>
+
+                <div id="active-part-display">Waiting for selection...</div>
+            </div>
+
+            <div id="instruction-text">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2" style="margin-bottom:10px;">
+                    <circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path>
+                </svg><br>
+                <span style="color:#111;"><b>Right-Click and Drag</b> anywhere to rotate.</span><br><br>
+                <span id="click-instruction"><b>Left-Click</b> directly on any part to customize it.</span>
+            </div>
+
+            <div id="shared-tools" class="tool-panel">
+                
+                <div id="ds-upper-tools" style="display:none; margin-bottom: 25px; padding-bottom: 25px; border-bottom: 1px solid #eee;">
+                    <div class="option-label" style="color:#e6a822;">Structural Cut</div>
+                    <div class="mat-grid" style="margin-bottom:0;">
+                        <button class="mat-btn selected" onclick="simulateHighTop('low', this)">Low Top</button>
+                        <button class="mat-btn" onclick="simulateHighTop('high', this)">High Top</button>
+                    </div>
+                </div>
+
+                <div class="option-label">1. Material Physics & Textures</div>
+                <div class="mat-grid">
+                    <button class="mat-btn selected" onclick="applyMaterial('standard', this)">Matte Leather</button>
+                    <button class="mat-btn" onclick="applyMaterial('foam', this)">Suede / Foam</button>
+                    <button class="mat-btn" onclick="applyMaterial('glossy', this)">Glossy Poly</button>
+                </div>
+                
+                <div class="mat-grid" id="advanced-textures" style="display:none; margin-top:-20px;">
+                    <button class="mat-btn selected" onclick="applyTexture('smooth', this)">Smooth</button>
+                    <button class="mat-btn" onclick="applyTexture('carbon', this)">Carbon Mesh</button>
+                    <button class="mat-btn" onclick="applyTexture('ribbed', this)">Ribbed Grip</button>
+                </div>
+
+                <div class="color-section">
+                    <div class="option-label">2. Curated Colors</div>
+                    <div class="color-grid" id="curated-colors">
+                        <div class="color-swatch bg-white" onclick="applyCuratedColor('#ffffff', this)"></div>
+                        <div class="color-swatch bg-black" onclick="applyCuratedColor('#1a1a1a', this)"></div>
+                        <div class="color-swatch bg-sail" onclick="applyCuratedColor('#f4f0e6', this)"></div>
+                        <div class="color-swatch bg-red" onclick="applyCuratedColor('#c92a2a', this)"></div>
+                        <div class="color-swatch bg-blue" onclick="applyCuratedColor('#1864ab', this)"></div>
+                        <div class="color-swatch bg-gum" onclick="applyCuratedColor('#d0b084', this)"></div>
+                    </div>
+                </div>
+
+                <div class="color-section">
+                    <div class="option-label">3. Custom Spectrum</div>
+                    <div class="custom-color-container" id="gradient-btn">
+                        <div class="custom-color-text">Open Color Wheel</div>
+                        <input type="color" id="native-color-picker" oninput="applyCustomColor(this.value)">
+                    </div>
+                </div>
+
+                <div id="cad-sliders" style="display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px;">
+                    <div class="option-label">Parametric Manipulation</div>
+                    <div class="slider-group">
+                        <label><span>X-Axis (Width)</span> <span id="val-x">1.00</span></label>
+                        <input type="range" id="scale-x" min="0.8" max="1.5" step="0.05" value="1" oninput="applyScale('x', this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label><span>Y-Axis (Thickness)</span> <span id="val-y">1.00</span></label>
+                        <input type="range" id="scale-y" min="0.5" max="2.0" step="0.05" value="1" oninput="applyScale('y', this.value)">
+                    </div>
+                    <div class="slider-group">
+                        <label><span>Z-Axis (Length)</span> <span id="val-z">1.00</span></label>
+                        <input type="range" id="scale-z" min="0.9" max="1.2" step="0.05" value="1" oninput="applyScale('z', this.value)">
+                    </div>
+                    <div id="safety-readout">SYS.CHECK: Biomechanics Nominal.<br>Structure within safe limits.</div>
+                </div>
+
+                <div id="designer-nav" class="ds-controls" style="display:none;">
+                    <button class="ds-btn" id="ds-prev" style="display:none;" onclick="designerStep(-1)">Back</button>
+                    <button class="ds-btn primary" id="ds-next" onclick="designerStep(1)">Next Phase</button>
+                </div>
+            </div>
+
+            <div style="flex-grow: 1;"></div>
+            
+            <div class="checkout-area" id="checkout-footer">
+                <div class="price-display">
+                    <span>Total Price</span>
+                    <span id="price-tag">$120</span>
+                </div>
+                <button class="checkout-btn" onclick="showCheckout()">Finish Design</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="checkout-modal">
+        <div class="receipt-card">
+            <div class="receipt-header">
+                <h2>FOOTLABS</h2>
+                <p>Order Summary</p>
+            </div>
+            
+            <div class="line-item"><span>Base Chassis</span><span>$120.00</span></div>
+            <div class="line-item" id="receipt-materials"><span>Material Upcharges</span><span>$0.00</span></div>
+            <div class="line-item" id="receipt-advanced" style="display:none; color: #e6a822;"><span>Advanced CAD Engine Fee</span><span>$50.00</span></div>
+            <div class="line-item" id="receipt-designer" style="display:none; color: #e6a822;"><span>Bespoke Design Fee</span><span>$80.00</span></div>
+            
+            <div class="line-item bold"><span>Total Due</span><span id="receipt-total">$120.00</span></div>
+            
+            <button class="btn-confirm" onclick="alert('Order Sent to Manufacturing!')">Confirm & Build</button>
+            <div class="btn-close" onclick="closeCheckout()">Return to Studio</div>
+        </div>
+    </div>
+
+<script>
 function triggerRedAlert(message) {
     const log = document.getElementById('error-log');
     log.style.display = 'block';
@@ -310,10 +492,10 @@ function init3DEnvironment() {
             let rawGroup = gltf.scene;
             
             if (!isMonolithic) {
-                // Apply perfectly synced alignments
-                rawGroup.rotation.x = ONSHAPE_ALIGN[category].x;
-                rawGroup.rotation.y = ONSHAPE_ALIGN[category].y;
-                rawGroup.rotation.z = ONSHAPE_ALIGN[category].z;
+                // 🧠 RESTORED YOUR EXACT WORKING ALIGNMENT (No Z-Axis rotation!)
+                if (category === 'upper' || category === 'laces') {
+                    rawGroup.rotation.x = -Math.PI / 2; 
+                }
                 rawGroup.updateMatrixWorld(true);
 
                 let box = new THREE.Box3().setFromObject(rawGroup);
@@ -347,6 +529,8 @@ function init3DEnvironment() {
                     let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
                     node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
                     node.userData.baseScale = node.scale.clone();
+                    
+                    // CRITICAL: Parent Module reference for safe scaling
                     node.userData.parentModule = targetGroup; 
                     
                     if (isMonolithic) {
@@ -367,29 +551,25 @@ function init3DEnvironment() {
         }, undefined, (e) => {
             if (filename === 'laces.glb') {
                 console.warn('No laces found. Skipping gracefully.');
-                let emptyLaces = new THREE.Group();
-                emptyLaces.userData.category = 'laces';
-                emptyLaces.userData.targetY = 0;
-                shoeModules['laces'] = emptyLaces;
-                shoe.add(emptyLaces);
             } else {
-                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>.");
+                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>. Make sure it is in your GitHub repo.");
             }
             checkAllLoaded();
         });
     };
 
-    // --- ARCHITECTURE BRANCHING ---
+    // --- ARCHITECTURE BRANCHING (Using GLB Files) ---
     if (currentMode === 'template' || currentMode === 'advanced') {
         loadModule('updatedshoe.glb', 'sole', true); 
     } else if (currentMode === 'designer') {
-        loadModule('sole 1.gltf', 'sole', false);
-        loadModule('upper.gltf', 'upper', false);
+        loadModule('sole.glb', 'sole', false);
+        loadModule('upper.glb', 'upper', false);
         loadModule('laces.glb', 'laces', false); 
     }
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
+    // 🧠 GLOBALLY SCOPED MATH 
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
         
@@ -407,21 +587,12 @@ function init3DEnvironment() {
         let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.05; 
         
         shoeModules.upper.userData.targetY = stackY;
-        
-        if (shoeModules.laces && shoeModules.laces.children.length > 0) {
-            let rawLaces = shoeModules.laces.children[0];
-            rawLaces.updateMatrixWorld(true);
-            let lacesBox = new THREE.Box3().setFromObject(rawLaces);
-            let lacesHeight = lacesBox.max.y - lacesBox.min.y;
-            shoeModules.laces.userData.targetY = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
-        }
     };
 
     function finalizeEngineSetup() {
         if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
             window.updateStackTargets();
             shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
-            if(shoeModules.laces) shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
         }
 
         const combinedBox = new THREE.Box3().setFromObject(shoe);
@@ -522,13 +693,13 @@ function selectPart(target) {
     if(currentMode === 'advanced' || currentMode === 'designer') {
         document.getElementById('cad-sliders').style.display = 'block';
         
+        // 🚨 CRASH GUARD: Securely identify the module to prevent undefined 'x' error
         let targetMod = activePart;
         if (currentMode === 'designer' && activePart.userData.parentModule) {
             targetMod = activePart.userData.parentModule;
         }
         
-        if (!targetMod || !targetMod.scale) return; 
-        if (!targetMod.userData.baseScale) targetMod.userData.baseScale = new THREE.Vector3(1, 1, 1);
+        if (!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return; 
         
         document.getElementById('scale-x').value = targetMod.scale.x / targetMod.userData.baseScale.x;
         document.getElementById('scale-y').value = targetMod.scale.y / targetMod.userData.baseScale.y;
@@ -629,17 +800,7 @@ function designerStep(direction) {
         
         showToast("Loading Accessories...");
 
-        if (shoeModules.laces && shoeModules.laces.children.length > 0) {
-            shoeModules.laces.position.y = shoeModules.laces.userData.targetY + dropOffset; 
-        }
-
         let first = null;
-        selectableParts.forEach(p => {
-            if(p.userData.category === 'laces') {
-                p.visible = true;
-                if(!first) first = p;
-            }
-        });
         if(first) {
             selectPart(first);
         } else {
@@ -658,32 +819,35 @@ window.simulateHighTop = (type, btn) => {
     document.querySelectorAll('#ds-upper-tools .mat-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     
-    if(type === 'high') {
-        if(shoeModules.upper) {
-            shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y * 1.5;
-            shoeModules.upper.userData.targetY += 0.8; 
-            showToast("Upper chassis extended to High Top profile.");
-        }
-    } else {
-        if(shoeModules.upper) {
-            shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y;
-            shoeModules.upper.userData.targetY -= 0.8;
-            showToast("Upper chassis restored to Low Top profile.");
-        }
+    let targetMod = activePart;
+    if (currentMode === 'designer' && activePart.userData.parentModule) {
+        targetMod = activePart.userData.parentModule;
     }
+    if(!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return;
+
+    if(type === 'high') {
+        targetMod.scale.y = targetMod.userData.baseScale.y * 1.5;
+        targetMod.userData.targetY += 0.8; 
+        showToast("Upper chassis extended to High Top profile.");
+    } else {
+        targetMod.scale.y = targetMod.userData.baseScale.y;
+        targetMod.userData.targetY -= 0.8;
+        showToast("Upper chassis restored to Low Top profile.");
+    }
+    window.updateStackTargets();
 };
 
 window.applyScale = (axis, value) => {
     if(!activePart) return;
     const newScale = parseFloat(value);
     
+    // 🚨 CRASH GUARD: Prevents "Cannot read property 'x' of undefined"
     let targetMod = activePart;
     if (currentMode === 'designer' && activePart.userData.parentModule) {
         targetMod = activePart.userData.parentModule;
     }
     
-    if (!targetMod || !targetMod.scale) return;
-    if (!targetMod.userData.baseScale) targetMod.userData.baseScale = new THREE.Vector3(1, 1, 1);
+    if (!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return;
     
     targetMod.scale[axis] = targetMod.userData.baseScale[axis] * newScale;
     updateSliderText();
@@ -828,7 +992,7 @@ function animate() {
     
     if (currentMode === 'designer') {
         Object.values(shoeModules).forEach(mod => {
-            if (mod && mod.visible !== false && mod.userData.targetY !== undefined) {
+            if (mod && mod.userData.targetY !== undefined) {
                 if (Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
                     mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
                 }
