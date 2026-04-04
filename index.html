@@ -494,10 +494,11 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // 🧠 RESTORED EXACT ALIGNMENT MATH FROM YOUR CODE
+            // 🧠 RESTORED EXACT ALIGNMENT MATH FROM YOUR PREVIOUS SUCCESS
             if (!isMonolithic) {
                 if (category === 'upper' || category === 'laces') {
-                    rawGroup.rotation.x = -Math.PI / 2; // Exact code you pasted that worked!
+                    // Only flip X. Reverted the extra Z rotation that broke alignment.
+                    rawGroup.rotation.x = -Math.PI / 2; 
                 }
                 rawGroup.updateMatrixWorld(true);
 
@@ -574,7 +575,7 @@ function init3DEnvironment() {
     
     function finalizeEngineSetup() {
         
-        // 2. DYNAMIC STACKING: Calculate gap mathematically based on wrapper sizes!
+        // DYNAMIC STACKING: Calculate gap mathematically based on wrapper sizes!
         if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
             updateStackTargets();
             // Snap them initially so the overall shoe bounding box scales cleanly
@@ -598,7 +599,7 @@ function init3DEnvironment() {
             }
         }
 
-        // 3. SET BASE POSITIONS & HIDE UNTIL PHASE 2
+        // SET BASE POSITIONS & HIDE UNTIL PHASE 2
         selectableParts.forEach(p => {
             p.userData.basePos = p.position.clone();
             p.userData.targetY = p.position.y;
@@ -669,18 +670,13 @@ function init3DEnvironment() {
 function updateStackTargets() {
     if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
 
-    // Temporarily reset positions to 0 so bounding box measures true raw height
-    let tempPosUpper = shoeModules.upper.position.y;
-    shoeModules.upper.position.y = 0;
-
     shoeModules.sole.updateMatrixWorld(true);
-    shoeModules.upper.updateMatrixWorld(true);
-
     let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
     
     // Target the raw group inside the wrapper to find true height
     let rawUpper = shoeModules.upper.children[0];
     if (!rawUpper) return;
+    rawUpper.updateMatrixWorld(true);
     let upperBox = new THREE.Box3().setFromObject(rawUpper);
     
     let soleHeight = soleBox.max.y - soleBox.min.y;
@@ -689,7 +685,6 @@ function updateStackTargets() {
     let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.08; 
     
     shoeModules.upper.userData.targetY = stackY;
-    shoeModules.upper.position.y = tempPosUpper; // Restore position immediately
     
     if (shoeModules.laces && shoeModules.laces.children.length > 0) {
         let rawLaces = shoeModules.laces.children[0];
@@ -715,9 +710,12 @@ function selectPart(target) {
     
     if(currentMode === 'advanced' || currentMode === 'designer') {
         document.getElementById('cad-sliders').style.display = 'block';
-        document.getElementById('scale-x').value = activePart.scale.x / activePart.userData.baseScale.x;
-        document.getElementById('scale-y').value = activePart.scale.y / activePart.userData.baseScale.y;
-        document.getElementById('scale-z').value = activePart.scale.z / activePart.userData.baseScale.z;
+        
+        let targetMod = (currentMode === 'designer') ? activePart.userData.parentModule : activePart;
+        document.getElementById('scale-x').value = targetMod.scale.x / targetMod.userData.baseScale.x;
+        document.getElementById('scale-y').value = targetMod.scale.y / targetMod.userData.baseScale.y;
+        document.getElementById('scale-z').value = targetMod.scale.z / targetMod.userData.baseScale.z;
+        
         updateSliderText();
         runSafetyEngine(document.getElementById('scale-y').value, 'y');
     }
@@ -780,7 +778,6 @@ function designerStep(direction) {
         showToast("Loading Modular Upper...");
 
         if (shoeModules.upper) {
-            updateStackTargets();
             shoeModules.upper.position.y = shoeModules.upper.userData.targetY + dropOffset; 
         }
 
@@ -838,11 +835,11 @@ window.simulateHighTop = (type, btn) => {
     btn.classList.add('selected');
     
     if(type === 'high') {
-        activePart.scale.y = activePart.userData.baseScale.y * 1.5;
+        shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y * 1.5;
         shoeModules.upper.userData.targetY += 0.8; 
         showToast("Upper chassis extended to High Top profile.");
     } else {
-        activePart.scale.y = activePart.userData.baseScale.y;
+        shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y;
         shoeModules.upper.userData.targetY -= 0.8;
         showToast("Upper chassis restored to Low Top profile.");
     }
@@ -852,15 +849,16 @@ window.applyScale = (axis, value) => {
     if(!activePart) return;
     const newScale = parseFloat(value);
     
-    activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
+    let targetMod = (currentMode === 'designer') ? activePart.userData.parentModule : activePart;
+    targetMod.scale[axis] = targetMod.userData.baseScale[axis] * newScale;
     updateSliderText();
     
-    let cat = activePart.userData.category;
-    if(currentMode === 'designer' && activePart.userData.parentModule === shoeModules.sole && axis === 'y') {
+    // Dynamically recalculate Stack Drop Zone if Sole Thickens
+    if(currentMode === 'designer' && targetMod === shoeModules.sole && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         updateStackTargets();
     } 
-    else if (currentMode !== 'designer' && cat === 'sole' && axis === 'y') {
+    else if (currentMode !== 'designer' && activePart.userData.category === 'sole' && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         const delta = (newScale - 1) * 0.4; 
         selectableParts.forEach(node => {
