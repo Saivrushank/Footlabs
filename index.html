@@ -153,12 +153,12 @@
 <script>
 // ==========================================
 // 🛠️ ONSHAPE ALIGNMENT CONTROLS 🛠️
-// The Upper is spun 90 degrees on the Z-axis to perfectly parallel the Sole.
+// Z-axis rotation removed. Restored to perfect alignment.
 // ==========================================
 const ONSHAPE_ALIGN = {
     'sole':  { x: 0, y: 0, z: 0 },
-    'upper': { x: -Math.PI / 2, y: 0, z: -Math.PI / 2 }, 
-    'laces': { x: -Math.PI / 2, y: 0, z: -Math.PI / 2 }  
+    'upper': { x: -Math.PI / 2, y: 0, z: 0 }, 
+    'laces': { x: -Math.PI / 2, y: 0, z: 0 }  
 };
 // ==========================================
 
@@ -367,6 +367,11 @@ function init3DEnvironment() {
         }, undefined, (e) => {
             if (filename === 'laces.glb') {
                 console.warn('No laces found. Skipping gracefully.');
+                let emptyLaces = new THREE.Group();
+                emptyLaces.userData.category = 'laces';
+                emptyLaces.userData.targetY = 0;
+                shoeModules['laces'] = emptyLaces;
+                shoe.add(emptyLaces);
             } else {
                 triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>.");
             }
@@ -374,6 +379,7 @@ function init3DEnvironment() {
         });
     };
 
+    // --- ARCHITECTURE BRANCHING ---
     if (currentMode === 'template' || currentMode === 'advanced') {
         loadModule('updatedshoe.glb', 'sole', true); 
     } else if (currentMode === 'designer') {
@@ -822,7 +828,7 @@ function animate() {
     
     if (currentMode === 'designer') {
         Object.values(shoeModules).forEach(mod => {
-            if (mod && mod.userData.targetY !== undefined) {
+            if (mod && mod.visible !== false && mod.userData.targetY !== undefined) {
                 if (Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
                     mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
                 }
@@ -842,6 +848,7 @@ function animate() {
     if(renderer && scene && camera) renderer.render(scene, camera);
 }
 
+// 🧠 RESIZE CRASH GUARD
 window.addEventListener('resize', () => {
     const container = document.getElementById('canvas-container');
     if(!container || !camera || !renderer) return; 
