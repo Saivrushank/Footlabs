@@ -151,16 +151,11 @@
     <div id="error-log"></div>
 
 <script>
-// ==========================================
-// 🛠️ ONSHAPE ALIGNMENT CONTROLS 🛠️
-// This matches your exact previously working alignment.
-// ==========================================
 const ONSHAPE_ALIGN = {
     'sole':  { x: 0, y: 0, z: 0 },
     'upper': { x: -Math.PI / 2, y: 0, z: 0 }, 
     'laces': { x: -Math.PI / 2, y: 0, z: 0 }  
 };
-// ==========================================
 
 function triggerRedAlert(message) {
     const log = document.getElementById('error-log');
@@ -310,15 +305,32 @@ function init3DEnvironment() {
             let rawGroup = gltf.scene;
             
             if (!isMonolithic) {
-                // Apply alignments securely
                 rawGroup.rotation.x = ONSHAPE_ALIGN[category].x;
                 rawGroup.rotation.y = ONSHAPE_ALIGN[category].y;
                 rawGroup.rotation.z = ONSHAPE_ALIGN[category].z;
                 rawGroup.updateMatrixWorld(true);
 
-                let box = new THREE.Box3().setFromObject(rawGroup);
+                // 🧠 MICROSCOPIC CAD FIX: Calculate Bounding Box ONLY on solid meshes
+                let box = new THREE.Box3();
+                let hasMesh = false;
+                
+                rawGroup.traverse(child => {
+                    if (child.isMesh) {
+                        child.geometry.computeBoundingBox();
+                        let childBox = child.geometry.boundingBox.clone();
+                        childBox.applyMatrix4(child.matrixWorld);
+                        box.union(childBox);
+                        hasMesh = true;
+                    }
+                });
+
                 let center = new THREE.Vector3();
-                box.getCenter(center);
+                if (hasMesh && !box.isEmpty()) {
+                    box.getCenter(center);
+                } else {
+                    // Fallback just in case
+                    new THREE.Box3().setFromObject(rawGroup).getCenter(center);
+                }
 
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
@@ -326,8 +338,6 @@ function init3DEnvironment() {
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
-                
-                // 🚨 CRASH GUARD 1: Prevent "undefined scale"
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1); 
                 wrapper.add(rawGroup);
 
@@ -349,8 +359,6 @@ function init3DEnvironment() {
                     let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
                     node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
                     node.userData.baseScale = node.scale.clone();
-                    
-                    // 🚨 CRASH GUARD 2: Proper parent binding
                     node.userData.parentModule = targetGroup; 
                     
                     if (isMonolithic) {
@@ -372,13 +380,12 @@ function init3DEnvironment() {
             if (filename === 'laces.glb') {
                 console.warn('No laces found. Skipping gracefully.');
             } else {
-                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>. Check your GitHub repository 'models' folder.");
+                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>.");
             }
             checkAllLoaded();
         });
     };
 
-    // --- ARCHITECTURE BRANCHING: Reverted back to the original GLTF files ---
     if (currentMode === 'template' || currentMode === 'advanced') {
         loadModule('updatedshoe.glb', 'sole', true); 
     } else if (currentMode === 'designer') {
@@ -389,18 +396,31 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // 🧠 GLOBALLY SCOPED MATH: Crash Guard Active
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
         
         let rawUpper = shoeModules.upper.children[0];
-        if (!rawUpper) return; // Safety abort if Upper isn't fully built
+        if (!rawUpper) return; 
         
         shoeModules.sole.updateMatrixWorld(true);
-        let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
+        let soleBox = new THREE.Box3();
+        shoeModules.sole.traverse(child => {
+            if (child.isMesh) {
+                let childBox = child.geometry.boundingBox.clone();
+                childBox.applyMatrix4(child.matrixWorld);
+                soleBox.union(childBox);
+            }
+        });
         
         rawUpper.updateMatrixWorld(true);
-        let upperBox = new THREE.Box3().setFromObject(rawUpper);
+        let upperBox = new THREE.Box3();
+        rawUpper.traverse(child => {
+            if (child.isMesh) {
+                let childBox = child.geometry.boundingBox.clone();
+                childBox.applyMatrix4(child.matrixWorld);
+                upperBox.union(childBox);
+            }
+        });
         
         let soleHeight = soleBox.max.y - soleBox.min.y;
         let upperHeight = upperBox.max.y - upperBox.min.y;
@@ -408,31 +428,38 @@ function init3DEnvironment() {
         let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.05; 
         
         shoeModules.upper.userData.targetY = stackY;
-        
-        if (shoeModules.laces && shoeModules.laces.children.length > 0) {
-            let rawLaces = shoeModules.laces.children[0];
-            rawLaces.updateMatrixWorld(true);
-            let lacesBox = new THREE.Box3().setFromObject(rawLaces);
-            let lacesHeight = lacesBox.max.y - lacesBox.min.y;
-            shoeModules.laces.userData.targetY = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
-        }
     };
 
     function finalizeEngineSetup() {
         if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
             window.updateStackTargets();
             shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
-            if(shoeModules.laces) shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
         }
 
-        const combinedBox = new THREE.Box3().setFromObject(shoe);
-        if(!combinedBox.isEmpty()) {
+        // 🧠 FORCE EXACT SCALING: Size 10 constraint
+        let combinedBox = new THREE.Box3();
+        let hasValidMesh = false;
+        
+        shoe.traverse(child => {
+            if (child.isMesh) {
+                child.geometry.computeBoundingBox();
+                let childBox = child.geometry.boundingBox.clone();
+                childBox.applyMatrix4(child.matrixWorld);
+                combinedBox.union(childBox);
+                hasValidMesh = true;
+            }
+        });
+
+        if(hasValidMesh && !combinedBox.isEmpty()) {
             const center = combinedBox.getCenter(new THREE.Vector3());
             const size = combinedBox.getSize(new THREE.Vector3());
             const maxDim = Math.max(size.x, size.y, size.z);
             
-            if (maxDim > 0 && maxDim !== Infinity && !isNaN(maxDim)) {
-                const scale = 8 / maxDim;
+            // If the box is broken and claims it's 50,000 wide, clamp it to a safe standard
+            let safeMaxDim = maxDim > 500 ? 1 : maxDim; 
+            
+            if (safeMaxDim > 0 && safeMaxDim !== Infinity && !isNaN(safeMaxDim)) {
+                const scale = 10 / safeMaxDim; // Forces size 10 scaling
                 shoe.scale.set(scale, scale, scale);
                 shoe.position.sub(center.multiplyScalar(scale));
                 shoe.position.y += 0.5;
@@ -523,16 +550,12 @@ function selectPart(target) {
     if(currentMode === 'advanced' || currentMode === 'designer') {
         document.getElementById('cad-sliders').style.display = 'block';
         
-        // 🚨 CRASH GUARD 3: Impervious slider fallback to prevent 'x of undefined' error
         let targetMod = activePart;
         if (currentMode === 'designer' && activePart.userData.parentModule) {
             targetMod = activePart.userData.parentModule;
         }
         
-        if (!targetMod || !targetMod.scale || !targetMod.userData.baseScale) {
-            console.error("Scale data missing for component, ignoring slider update.");
-            return; // Hard exit before crash
-        }
+        if (!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return; 
         
         document.getElementById('scale-x').value = targetMod.scale.x / targetMod.userData.baseScale.x;
         document.getElementById('scale-y').value = targetMod.scale.y / targetMod.userData.baseScale.y;
@@ -633,17 +656,7 @@ function designerStep(direction) {
         
         showToast("Loading Accessories...");
 
-        if (shoeModules.laces && shoeModules.laces.children.length > 0) {
-            shoeModules.laces.position.y = shoeModules.laces.userData.targetY + dropOffset; 
-        }
-
         let first = null;
-        selectableParts.forEach(p => {
-            if(p.userData.category === 'laces') {
-                p.visible = true;
-                if(!first) first = p;
-            }
-        });
         if(first) {
             selectPart(first);
         } else {
@@ -662,33 +675,34 @@ window.simulateHighTop = (type, btn) => {
     document.querySelectorAll('#ds-upper-tools .mat-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     
-    if (currentMode === 'designer' && shoeModules.upper) {
-        if(type === 'high') {
-            shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y * 1.5;
-            shoeModules.upper.userData.targetY += 0.8; 
-            showToast("Upper chassis extended to High Top profile.");
-        } else {
-            shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y;
-            shoeModules.upper.userData.targetY -= 0.8;
-            showToast("Upper chassis restored to Low Top profile.");
-        }
+    let targetMod = activePart;
+    if (currentMode === 'designer' && activePart.userData.parentModule) {
+        targetMod = activePart.userData.parentModule;
     }
+    if(!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return;
+
+    if(type === 'high') {
+        targetMod.scale.y = targetMod.userData.baseScale.y * 1.5;
+        targetMod.userData.targetY += 0.8; 
+        showToast("Upper chassis extended to High Top profile.");
+    } else {
+        targetMod.scale.y = targetMod.userData.baseScale.y;
+        targetMod.userData.targetY -= 0.8;
+        showToast("Upper chassis restored to Low Top profile.");
+    }
+    window.updateStackTargets();
 };
 
 window.applyScale = (axis, value) => {
     if(!activePart) return;
     const newScale = parseFloat(value);
     
-    // 🚨 CRASH GUARD 4: Prevent "Cannot read properties of undefined (reading 'x')" 
     let targetMod = activePart;
     if (currentMode === 'designer' && activePart.userData.parentModule) {
         targetMod = activePart.userData.parentModule;
     }
     
-    if (!targetMod || !targetMod.scale || !targetMod.userData.baseScale) {
-        console.error("Scale data missing for component, ignoring scale interaction.");
-        return; // Hard exit before crash
-    }
+    if (!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return;
     
     targetMod.scale[axis] = targetMod.userData.baseScale[axis] * newScale;
     updateSliderText();
@@ -853,7 +867,6 @@ function animate() {
     if(renderer && scene && camera) renderer.render(scene, camera);
 }
 
-// 🚨 CRASH GUARD 5: Safely ignore resize events before camera is built
 window.addEventListener('resize', () => {
     const container = document.getElementById('canvas-container');
     if(!container || !camera || !renderer) return; 
