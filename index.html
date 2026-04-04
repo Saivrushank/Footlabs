@@ -494,48 +494,30 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // 🧠 THE ISOLATION WRAPPER: Perfect math for Centering + Rotating
+            // 🧠 RESTORED EXACT ALIGNMENT MATH FROM YOUR CODE
             if (!isMonolithic) {
-                // 1. Strip out any accidental rotations first to prevent math errors
-                rawGroup.rotation.set(0, 0, 0);
+                if (category === 'upper' || category === 'laces') {
+                    rawGroup.rotation.x = -Math.PI / 2; // Exact code you pasted that worked!
+                }
                 rawGroup.updateMatrixWorld(true);
 
-                // 2. Measure the true center
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
                 box.getCenter(center);
 
-                // 3. Move purely to its local center
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
 
-                // 4. Wrap it safely so rotations don't ruin the origin point
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
-                
-                // Set default scale state for the wrapper
-                wrapper.scale.set(1, 1, 1);
-                wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
                 wrapper.add(rawGroup);
-
-                // 5. Apply the Shark Fin fixes ONLY to the wrapper
-                if (category === 'upper' || category === 'laces') {
-                    wrapper.rotation.x = -Math.PI / 2;
-                    wrapper.rotation.z = -Math.PI / 2;
-                }
-                wrapper.updateMatrixWorld(true);
-                
-                // Record the final, true physical height of the object
-                let finalBox = new THREE.Box3().setFromObject(wrapper);
-                wrapper.userData.localHeight = finalBox.max.y - finalBox.min.y;
 
                 shoeModules[category] = wrapper;
                 shoe.add(wrapper);
             } else {
                 rawGroup.userData.category = category;
                 rawGroup.userData.name = category.toUpperCase();
-                rawGroup.userData.baseScale = rawGroup.scale.clone();
                 shoeModules[category] = rawGroup;
                 shoe.add(rawGroup);
             }
@@ -547,8 +529,7 @@ function init3DEnvironment() {
                     node.castShadow = true; node.receiveShadow = true;
                     let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
                     node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
-                    
-                    // Bind every mesh back to the safe Wrapper
+                    node.userData.baseScale = node.scale.clone();
                     node.userData.parentModule = targetGroup; 
                     
                     if (isMonolithic) {
@@ -557,8 +538,7 @@ function init3DEnvironment() {
                         else if(n.includes('LACE') || n.includes('AGLET')) node.userData.category = 'laces';
                         else node.userData.category = 'upper';
                     } else {
-                        // Strictly categorize all meshes in the file 
-                        node.userData.category = category; 
+                        node.userData.category = category;
                     }
                     selectableParts.push(node); 
                 }
@@ -572,8 +552,6 @@ function init3DEnvironment() {
                 console.warn('No laces found. Skipping gracefully.');
                 let emptyLaces = new THREE.Group();
                 emptyLaces.userData.category = 'laces';
-                emptyLaces.userData.localHeight = 0;
-                emptyLaces.userData.targetY = 0;
                 shoeModules['laces'] = emptyLaces;
                 shoe.add(emptyLaces);
             } else {
@@ -596,7 +574,14 @@ function init3DEnvironment() {
     
     function finalizeEngineSetup() {
         
-        // Final Global Scaling (Will no longer be microscopically small!)
+        // 2. DYNAMIC STACKING: Calculate gap mathematically based on wrapper sizes!
+        if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
+            updateStackTargets();
+            // Snap them initially so the overall shoe bounding box scales cleanly
+            shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
+            if(shoeModules.laces) shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
+        }
+
         const combinedBox = new THREE.Box3().setFromObject(shoe);
         if(!combinedBox.isEmpty()) {
             const center = combinedBox.getCenter(new THREE.Vector3());
@@ -613,32 +598,17 @@ function init3DEnvironment() {
             }
         }
 
-        if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
-            updateStackTargets();
-            shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
-            if(shoeModules.laces && shoeModules.laces.children.length > 0) {
-                shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
+        // 3. SET BASE POSITIONS & HIDE UNTIL PHASE 2
+        selectableParts.forEach(p => {
+            p.userData.basePos = p.position.clone();
+            p.userData.targetY = p.position.y;
+            
+            if (currentMode === 'designer' && p.userData.category !== 'sole') {
+                p.visible = false; 
+            } else {
+                p.visible = true;
             }
-        }
-
-        // Lock Base Positions and handle initial visibility for all independent parts
-        if (currentMode === 'designer') {
-            Object.values(shoeModules).forEach(mod => {
-                if (mod) {
-                    mod.userData.basePos = mod.position.clone();
-                    if(mod.userData.targetY === undefined) mod.userData.targetY = mod.position.y;
-                }
-            });
-            selectableParts.forEach(p => {
-                if (p.userData.category !== 'sole') p.visible = false; 
-            });
-        } else {
-            selectableParts.forEach(p => {
-                p.userData.basePos = p.position.clone();
-                p.userData.targetY = p.position.y;
-                p.visible = true; 
-            });
-        }
+        });
 
         const loadScreen = document.getElementById('loading-screen');
         loadScreen.style.opacity = '0';
@@ -695,24 +665,38 @@ function init3DEnvironment() {
     }
 }
 
-// 🧠 GLOBALLY SCOPED CALCULATOR: Fixes the missing function crash!
+// 🧠 GLOBALLY SCOPED CALCULATOR: Safe and Unbreakable!
 function updateStackTargets() {
     if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
-    
-    // Grab the global size ratio of the scene to adjust local stacking math
-    let currentScale = shoe.scale.y || 1;
 
-    let soleH = (shoeModules.sole.userData.localHeight * shoeModules.sole.scale.y) / currentScale;
-    let upperH = (shoeModules.upper.userData.localHeight * shoeModules.upper.scale.y) / currentScale;
+    // Temporarily reset positions to 0 so bounding box measures true raw height
+    let tempPosUpper = shoeModules.upper.position.y;
+    shoeModules.upper.position.y = 0;
+
+    shoeModules.sole.updateMatrixWorld(true);
+    shoeModules.upper.updateMatrixWorld(true);
+
+    let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
     
-    // Exact mathematical stacking formula adapted to centered wrappers
-    let stackY = (soleH / 2) + (upperH / 2) - 0.08; 
+    // Target the raw group inside the wrapper to find true height
+    let rawUpper = shoeModules.upper.children[0];
+    if (!rawUpper) return;
+    let upperBox = new THREE.Box3().setFromObject(rawUpper);
+    
+    let soleHeight = soleBox.max.y - soleBox.min.y;
+    let upperHeight = upperBox.max.y - upperBox.min.y;
+    
+    let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.08; 
     
     shoeModules.upper.userData.targetY = stackY;
+    shoeModules.upper.position.y = tempPosUpper; // Restore position immediately
     
-    if (shoeModules.laces && shoeModules.laces.userData.localHeight !== undefined) {
-        let lacesH = (shoeModules.laces.userData.localHeight * shoeModules.laces.scale.y) / currentScale;
-        shoeModules.laces.userData.targetY = stackY + (upperH / 2) + (lacesH / 2) - 0.05;
+    if (shoeModules.laces && shoeModules.laces.children.length > 0) {
+        let rawLaces = shoeModules.laces.children[0];
+        rawLaces.updateMatrixWorld(true);
+        let lacesBox = new THREE.Box3().setFromObject(rawLaces);
+        let lacesHeight = lacesBox.max.y - lacesBox.min.y;
+        shoeModules.laces.userData.targetY = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
     }
 }
 
@@ -731,12 +715,9 @@ function selectPart(target) {
     
     if(currentMode === 'advanced' || currentMode === 'designer') {
         document.getElementById('cad-sliders').style.display = 'block';
-        
-        let targetMod = (currentMode === 'designer') ? activePart.userData.parentModule : activePart;
-        document.getElementById('scale-x').value = targetMod.scale.x / targetMod.userData.baseScale.x;
-        document.getElementById('scale-y').value = targetMod.scale.y / targetMod.userData.baseScale.y;
-        document.getElementById('scale-z').value = targetMod.scale.z / targetMod.userData.baseScale.z;
-        
+        document.getElementById('scale-x').value = activePart.scale.x / activePart.userData.baseScale.x;
+        document.getElementById('scale-y').value = activePart.scale.y / activePart.userData.baseScale.y;
+        document.getElementById('scale-z').value = activePart.scale.z / activePart.userData.baseScale.z;
         updateSliderText();
         runSafetyEngine(document.getElementById('scale-y').value, 'y');
     }
@@ -772,11 +753,6 @@ function designerStep(direction) {
 
         showToast("Loading Modular Sole...");
         
-        if (shoeModules.sole) {
-            shoeModules.sole.userData.targetY = 0; 
-            shoeModules.sole.position.y = dropOffset; 
-        }
-
         let first = null;
         selectableParts.forEach(p => {
             if(p.userData.category === 'sole') {
@@ -803,8 +779,8 @@ function designerStep(direction) {
         
         showToast("Loading Modular Upper...");
 
-        // The wrapper group drops from the sky to mathematical perfection
         if (shoeModules.upper) {
+            updateStackTargets();
             shoeModules.upper.position.y = shoeModules.upper.userData.targetY + dropOffset; 
         }
 
@@ -862,31 +838,29 @@ window.simulateHighTop = (type, btn) => {
     btn.classList.add('selected');
     
     if(type === 'high') {
-        shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y * 1.5;
+        activePart.scale.y = activePart.userData.baseScale.y * 1.5;
+        shoeModules.upper.userData.targetY += 0.8; 
         showToast("Upper chassis extended to High Top profile.");
     } else {
-        shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y;
+        activePart.scale.y = activePart.userData.baseScale.y;
+        shoeModules.upper.userData.targetY -= 0.8;
         showToast("Upper chassis restored to Low Top profile.");
     }
-    updateStackTargets();
 };
 
 window.applyScale = (axis, value) => {
     if(!activePart) return;
     const newScale = parseFloat(value);
     
-    // 🧠 UNIFIED MODULE SCALING: Scales the entire wrapper, fixing broken toe box pieces!
-    let targetMod = (currentMode === 'designer') ? activePart.userData.parentModule : activePart;
-    targetMod.scale[axis] = targetMod.userData.baseScale[axis] * newScale;
-    
+    activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
     updateSliderText();
     
-    // Dynamically recalculate Stack Drop Zone if Sole Thickens
-    if(currentMode === 'designer' && targetMod === shoeModules.sole && axis === 'y') {
+    let cat = activePart.userData.category;
+    if(currentMode === 'designer' && activePart.userData.parentModule === shoeModules.sole && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         updateStackTargets();
     } 
-    else if (currentMode !== 'designer' && activePart.userData.category === 'sole' && axis === 'y') {
+    else if (currentMode !== 'designer' && cat === 'sole' && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         const delta = (newScale - 1) * 0.4; 
         selectableParts.forEach(node => {
@@ -1017,7 +991,6 @@ window.takeSnapshot = () => {
     }, 150);
 };
 
-// 🧠 BULLETPROOF ANIMATION LOOP: Animates the Wrapper, not individual sub-meshes!
 function animate() {
     requestAnimationFrame(animate);
     
@@ -1043,9 +1016,10 @@ function animate() {
     if(renderer && scene && camera) renderer.render(scene, camera);
 }
 
+// 🧠 RESIZE BUG FIX: Added safety checks to prevent 'aspect' error on slow loads!
 window.addEventListener('resize', () => {
     const container = document.getElementById('canvas-container');
-    if(!container) return;
+    if(!container || !camera || !renderer) return; 
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
