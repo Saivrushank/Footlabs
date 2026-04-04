@@ -201,7 +201,7 @@
                     </div>
                     <div class="mode-card" onclick="launchStudio('designer')">
                         <h3>MODULAR BUILD</h3>
-                        <p>Guided assembly using your custom Onshape modules.</p>
+                        <p>Guided assembly using your fully assembled design.</p>
                     </div>
                 </div>
             </div>
@@ -480,8 +480,9 @@ function init3DEnvironment() {
     const loader = new THREE.GLTFLoader(manager);
 
     // =========================================================================
-    // 🧠 THE 2-FILE PROPERTY TRANSFER SYSTEM
-    // Designer uses 'sole 1.gltf' for Phase 1, then 'full_shoe.gltf' for Phase 2.
+    // 🧠 MULTI-BRANCH LOADER & 2-FILE DATA TRANSFER SYSTEM
+    // Designer uses 'sole 1.gltf' AND 'full_shoe.gltf'
+    // Template/Advanced uses 'updatedshoe.glb'
     // =========================================================================
     
     let modelFiles = [];
@@ -503,95 +504,103 @@ function init3DEnvironment() {
             loadedModels[mf.key] = gltf.scene;
             loadedFiles++;
             if (loadedFiles === expectedFiles) finalizeEngineSetup();
-        }, undefined, (err) => {
-            triggerRedAlert("404 ERROR: Could not find <b>" + mf.file + "</b>. Check your models folder on GitHub.");
+        }, undefined, (e) => {
+            triggerRedAlert("404 ERROR: Could not find <b>" + mf.file + "</b>. Check your GitHub repository 'models' folder. Make sure the capital letters and spaces match exactly.");
         });
     });
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
     function finalizeEngineSetup() {
+        
         if (currentMode === 'designer') {
             let sole1 = loadedModels['sole1'];
             let fullShoe = loadedModels['fullShoe'];
+            if (!sole1 || !fullShoe) return;
 
-            if (!sole1 || !fullShoe) return; 
-
-            // Phase 2 Setup (full_shoe.gltf)
-            let fsMeshes = [];
-            fullShoe.traverse(n => { if(n.isMesh) fsMeshes.push(n); });
-            fullShoe.updateMatrixWorld(true);
-            
-            // Auto-sort to find the sole vs upper in full_shoe
-            fsMeshes.sort((a,b) => new THREE.Box3().setFromObject(a).min.y - new THREE.Box3().setFromObject(b).min.y);
-
-            fsMeshes.forEach((node, i) => {
-                node.castShadow = true; node.receiveShadow = true;
-                let c = node.material && node.material.color ? node.material.color : 0xffffff;
-                node.material = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
-                node.userData.baseScale = node.scale.clone();
-                node.userData.parentModule = fullShoe;
-                node.userData.category = (i === 0) ? 'fs_sole' : 'fs_upper';
-                selectableParts.push(node);
-            });
-
-            // Phase 1 Setup (sole 1.gltf)
-            sole1.traverse(node => {
-                if(node.isMesh) {
-                    node.castShadow = true; node.receiveShadow = true;
-                    let c = node.material && node.material.color ? node.material.color : 0xffffff;
-                    node.material = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
-                    node.userData.baseScale = node.scale.clone();
-                    node.userData.parentModule = sole1;
-                    node.userData.category = 's1_sole';
-                    selectableParts.push(node);
+            // --- 1. Process 'sole 1.gltf' (Sandbox Sole) ---
+            sole1.traverse(n => {
+                if(n.isMesh) {
+                    n.castShadow = true; n.receiveShadow = true;
+                    n.material = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
+                    n.userData.baseScale = n.scale.clone();
+                    n.userData.parentModule = sole1;
+                    n.userData.category = 's1_sole';
+                    selectableParts.push(n);
                 }
             });
-
             shoe.add(sole1);
+
+            // --- 2. Process 'full_shoe.gltf' (Auto-Height Scanner) ---
+            fullShoe.updateMatrixWorld(true);
+            let fsMeshes = [];
+            fullShoe.traverse(n => { if(n.isMesh) fsMeshes.push(n); });
+            
+            fsMeshes.sort((a,b) => new THREE.Box3().setFromObject(a).min.y - new THREE.Box3().setFromObject(b).min.y);
+
+            fsMeshes.forEach((n, index) => {
+                n.castShadow = true; n.receiveShadow = true;
+                let c = n.material && n.material.color ? n.material.color : 0xffffff;
+                n.material = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
+                n.userData.baseScale = n.scale.clone();
+                n.userData.parentModule = fullShoe;
+                
+                if (index === 0) n.userData.category = 'fs_sole';
+                else if (index === fsMeshes.length - 1 && fsMeshes.length > 2) n.userData.category = 'fs_laces';
+                else n.userData.category = 'fs_upper';
+                
+                selectableParts.push(n);
+            });
             shoe.add(fullShoe);
 
         } else {
-            // Template/Advanced Setup
-            let tModel = loadedModels['template'];
-            if(!tModel) return;
-            
-            tModel.traverse(node => {
-                if(node.isMesh) {
-                    node.castShadow = true; node.receiveShadow = true;
-                    let c = node.material && node.material.color ? node.material.color : 0xffffff;
-                    node.material = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
-                    node.userData.baseScale = node.scale.clone();
-                    node.userData.parentModule = tModel;
-                    let n = node.name.toUpperCase();
-                    if(n.includes('SOLE')||n.includes('BOTTOM')) node.userData.category = 'sole';
-                    else node.userData.category = 'upper';
-                    selectableParts.push(node);
+            // --- 3. Process 'updatedshoe.glb' (Template/Advanced) ---
+            let template = loadedModels['template'];
+            if(!template) return;
+            template.traverse(n => {
+                if(n.isMesh) {
+                    n.castShadow = true; n.receiveShadow = true;
+                    let c = n.material && n.material.color ? n.material.color : 0xffffff;
+                    n.material = new THREE.MeshStandardMaterial({ color: c, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
+                    n.userData.baseScale = n.scale.clone();
+                    n.userData.parentModule = template;
+                    
+                    let name = n.name.toUpperCase();
+                    if(name.includes('SOLE')||name.includes('BOTTOM')) n.userData.category = 'sole';
+                    else if(name.includes('LACE')||name.includes('AGLET')) n.userData.category = 'laces';
+                    else n.userData.category = 'upper';
+                    
+                    selectableParts.push(n);
                 }
             });
-            shoe.add(tModel);
+            shoe.add(template);
         }
 
-        // Global Camera Fitting & Scaling based on whatever is loaded
+        // --- Scale whatever is in the shoe group uniformly ---
         const combinedBox = new THREE.Box3().setFromObject(shoe);
-        const center = combinedBox.getCenter(new THREE.Vector3());
-        const size = combinedBox.getSize(new THREE.Vector3());
-        const maxDim = Math.max(size.x, size.y, size.z);
-        
-        if (maxDim > 0 && maxDim !== Infinity && !isNaN(maxDim)) {
-            const scale = 8 / maxDim;
-            shoe.scale.set(scale, scale, scale);
-            shoe.position.sub(center.multiplyScalar(scale));
-            shoe.position.y += 0.5;
-            shoe.position.x -= 1.5; 
-            shoe.updateMatrixWorld(true);
+        if(!combinedBox.isEmpty()) {
+            const center = combinedBox.getCenter(new THREE.Vector3());
+            const size = combinedBox.getSize(new THREE.Vector3());
+            const maxDim = Math.max(size.x, size.y, size.z);
+            if (maxDim > 0 && maxDim !== Infinity && !isNaN(maxDim)) {
+                const scale = 8 / maxDim;
+                shoe.scale.set(scale, scale, scale);
+                shoe.position.sub(center.multiplyScalar(scale));
+                shoe.position.y += 0.5;
+                shoe.position.x -= 1.5; 
+                shoe.updateMatrixWorld(true);
+            }
         }
 
-        // Lock base positions for gravity drop logic
+        // --- Set base positions and initial visibility ---
         selectableParts.forEach(p => {
             p.userData.basePos = p.position.clone();
             p.userData.targetY = p.position.y;
-            if (currentMode === 'designer') p.visible = false; 
+            if (currentMode === 'designer') {
+                p.visible = false; 
+            } else {
+                p.visible = true; // FIX: Template Mode explicitly restored!
+            }
         });
 
         const loadScreen = document.getElementById('loading-screen');
@@ -601,6 +610,9 @@ function init3DEnvironment() {
             if(currentMode === 'designer') {
                 showToast("Studio locked to Two-Phase Transfer Engine.");
                 designerStep(0); 
+            } else {
+                document.getElementById('instruction-text').style.display = 'block';
+                showToast(mode.toUpperCase() + " Mode Active.");
             }
         }, 500);
     }
@@ -727,41 +739,42 @@ function designerStep(direction) {
         
         showToast("Syncing Sole Properties and Dropping Upper...");
 
-        // 🧠 THE MAGIC: Property Transfer from Phase 1 to Phase 2
+        // 🧠 DATA TRANSFER: Copy Phase 1 edits to Phase 2
         let s1 = selectableParts.find(p => p.userData.category === 's1_sole');
         let fs_sole = selectableParts.find(p => p.userData.category === 'fs_sole');
 
         if (s1 && fs_sole) {
-            // Transfer Colors & Textures
+            // Transfer Material
             fs_sole.material.color.copy(s1.material.color);
             fs_sole.material.roughness = s1.material.roughness;
             fs_sole.material.metalness = s1.material.metalness;
             fs_sole.material.bumpMap = s1.material.bumpMap;
             if(s1.material.bumpMap) fs_sole.material.bumpScale = s1.material.bumpScale;
 
-            // Transfer Scale 
+            // Transfer Parametric Scale
             let sx = s1.scale.x / s1.userData.baseScale.x;
             let sy = s1.scale.y / s1.userData.baseScale.y;
             let sz = s1.scale.z / s1.userData.baseScale.z;
             fs_sole.scale.set( fs_sole.userData.baseScale.x * sx, fs_sole.userData.baseScale.y * sy, fs_sole.userData.baseScale.z * sz );
+            fs_sole.userData.targetY = fs_sole.userData.basePos.y; 
 
-            // If the user made the sole thicker, adjust the upper so it sits exactly on top!
+            // Elevate Upper so it rides exactly on top of the modified sole
             let deltaY = (sy - 1) * 0.4;
             selectableParts.forEach(p => {
-                if (p.userData.category === 'fs_upper') {
+                if (p.userData.category === 'fs_upper' || p.userData.category === 'fs_laces') {
                     p.userData.targetY = p.userData.basePos.y + deltaY;
                 }
             });
         }
 
-        // Hide Phase 1, Drop Phase 2
+        // Execute Swap
         let firstUpper = null;
         selectableParts.forEach(p => {
             if (p.userData.category === 's1_sole') {
-                p.visible = false; // Hide old sandbox sole
+                p.visible = false; 
             } else if (p.userData.category === 'fs_sole' || p.userData.category === 'fs_upper') {
                 p.visible = true;
-                p.position.y = p.userData.targetY + dropOffset; 
+                if(p.userData.category === 'fs_upper') p.position.y = p.userData.targetY + dropOffset; 
                 if (p.userData.category === 'fs_upper' && !firstUpper) firstUpper = p;
             }
         });
@@ -779,7 +792,23 @@ function designerStep(direction) {
         camera.position.set(-1.5, 10, 2); 
         controls.target.set(-1.5, 0, 0);
         controls.update();
-        showToast("Finalizing Design...");
+        
+        showToast("Loading Accessories...");
+
+        let first = null;
+        selectableParts.forEach(p => {
+            if(p.userData.category === 'fs_laces') {
+                p.visible = true;
+                p.position.y = p.userData.targetY + dropOffset;
+                if(!first) first = p;
+            }
+        });
+        if(first) {
+            selectPart(first);
+        } else {
+             let u = selectableParts.find(p => p.userData.category === 'fs_upper');
+             if(u) selectPart(u);
+        }
     }
     else if (designerCurrentStep > 3) {
         showCheckout();
@@ -811,12 +840,12 @@ window.applyScale = (axis, value) => {
     updateSliderText();
     
     let cat = activePart.userData.category;
-    if((cat === 'sole' || cat === 's1_sole' || cat === 'fs_sole') && axis === 'y') {
+    if((cat === 'sole' || cat === 'fs_sole') && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         const delta = (newScale - 1) * 0.4; 
         
         selectableParts.forEach(node => {
-            if(node.userData.category === 'upper' || node.userData.category === 'fs_upper') {
+            if(node.userData.category === 'upper' || node.userData.category === 'fs_upper' || node.userData.category === 'laces' || node.userData.category === 'fs_laces') {
                 node.userData.targetY = node.userData.basePos.y + delta;
             }
         });
