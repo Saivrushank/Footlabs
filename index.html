@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Footlabs | Modular Engine</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@400;700&family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
@@ -491,21 +491,16 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
+            // 🧠 EXACT MATH FROM YOUR PASTED CODE
             if (!isMonolithic) {
-                // 1. YOUR ORIGINAL WORKING ALIGNMENT + Z SPIN
                 if (category === 'upper' || category === 'laces') {
-                    rawGroup.rotation.x = -Math.PI / 2;
-                    rawGroup.rotation.z = -Math.PI / 2; // Spins it forward so it's not a plus sign!
+                    rawGroup.rotation.x = -Math.PI / 2; 
                 }
                 rawGroup.updateMatrixWorld(true);
 
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
-                
-                // Safety shield to prevent invisible shoes
-                if (!box.isEmpty() && isFinite(box.min.x)) {
-                    box.getCenter(center);
-                }
+                box.getCenter(center);
 
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
@@ -513,7 +508,15 @@ function init3DEnvironment() {
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
+                
+                // 1. PREVENTS THE SLIDER CRASH:
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
+
+                // 2. PREVENTS THE CROSSED (+) ALIGNMENT: 
+                if (category === 'upper' || category === 'laces') {
+                    wrapper.rotation.y = -Math.PI / 2; 
+                }
+
                 wrapper.add(rawGroup);
 
                 shoeModules[category] = wrapper;
@@ -556,6 +559,8 @@ function init3DEnvironment() {
                 console.warn('No laces found. Skipping gracefully.');
                 let emptyLaces = new THREE.Group();
                 emptyLaces.userData.category = 'laces';
+                emptyLaces.userData.baseScale = new THREE.Vector3(1,1,1);
+                emptyLaces.userData.targetY = 0;
                 shoeModules['laces'] = emptyLaces;
                 shoe.add(emptyLaces);
             } else {
@@ -575,7 +580,7 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // 2. GLOBALLY SCOPED MATH (Fixes the Next Phase error & Prevents Invisible Upper)
+    // 🧠 EXACT FUNCTION FROM YOUR PASTED CODE
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
 
@@ -588,12 +593,9 @@ function init3DEnvironment() {
         let upperBox = new THREE.Box3().setFromObject(rawUpper);
 
         let soleHeight = soleBox.max.y - soleBox.min.y;
-        if (!isFinite(soleHeight)) soleHeight = 2; // Safety Fallback
-
         let upperHeight = upperBox.max.y - upperBox.min.y;
-        if (!isFinite(upperHeight)) upperHeight = 2; // Safety Fallback
 
-        let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.08;
+        let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.05;
 
         shoeModules.upper.userData.targetY = stackY;
 
@@ -602,7 +604,6 @@ function init3DEnvironment() {
             rawLaces.updateMatrixWorld(true);
             let lacesBox = new THREE.Box3().setFromObject(rawLaces);
             let lacesHeight = lacesBox.max.y - lacesBox.min.y;
-            if (!isFinite(lacesHeight)) lacesHeight = 1;
             shoeModules.laces.userData.targetY = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
         }
     };
@@ -714,7 +715,6 @@ function selectPart(target) {
     if(currentMode === 'advanced' || currentMode === 'designer') {
         document.getElementById('cad-sliders').style.display = 'block';
         
-        // 3. CRASH GUARD: Prevents the slider 'undefined' error
         let targetMod = activePart;
         if (currentMode === 'designer' && activePart.userData.parentModule) {
             targetMod = activePart.userData.parentModule;
@@ -794,8 +794,8 @@ function designerStep(direction) {
 
         if (shoeModules.upper) {
             window.updateStackTargets();
-            if (shoeModules.upper.userData.targetY !== undefined && !isNaN(shoeModules.upper.userData.targetY)) {
-                shoeModules.upper.position.y = shoeModules.upper.userData.targetY + dropOffset; 
+            if (shoeModules.upper.userData.targetY !== undefined) {
+                 shoeModules.upper.position.y = shoeModules.upper.userData.targetY + dropOffset; 
             }
         }
 
@@ -824,7 +824,7 @@ function designerStep(direction) {
         showToast("Loading Accessories...");
 
         if (shoeModules.laces && shoeModules.laces.children.length > 0) {
-            if (shoeModules.laces.userData.targetY !== undefined && !isNaN(shoeModules.laces.userData.targetY)) {
+            if (shoeModules.laces.userData.targetY !== undefined) {
                 shoeModules.laces.position.y = shoeModules.laces.userData.targetY + dropOffset; 
             }
         }
@@ -895,7 +895,7 @@ window.applyScale = (axis, value) => {
         const delta = (newScale - 1) * 0.4; 
         selectableParts.forEach(node => {
             if(node.userData.category !== 'sole') {
-                node.userData.targetY = node.userData.basePos.y + delta;
+                if (node.userData.basePos.y !== undefined) node.userData.targetY = node.userData.basePos.y + delta;
             }
         });
     }
@@ -1026,7 +1026,7 @@ function animate() {
     
     if (currentMode === 'designer') {
         Object.values(shoeModules).forEach(mod => {
-            if (mod && mod.userData.targetY !== undefined) {
+            if (mod && mod.visible !== false && mod.userData.targetY !== undefined) {
                 if (Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
                     mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
                 }
