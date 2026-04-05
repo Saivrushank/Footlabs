@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Footlabs | Modular Engine</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@400;700&family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
@@ -491,34 +491,28 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // 🧠 EXACT MATH FROM YOUR PASTED CODE
+            // 🧠 EXACT WORKING ALIGNMENT CODE FROM YESTERDAY
             if (!isMonolithic) {
-                if (category === 'upper' || category === 'laces') {
-                    rawGroup.rotation.x = -Math.PI / 2; 
-                }
+                if (category === 'upper' || category === 'laces') rawGroup.rotation.x = -Math.PI / 2;
                 rawGroup.updateMatrixWorld(true);
-
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
                 box.getCenter(center);
-
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
-
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
                 
-                // 1. PREVENTS THE SLIDER CRASH:
+                // 1. ADDED: Initializing the scale to prevent slider crashes
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
-
-                // 2. PREVENTS THE CROSSED (+) ALIGNMENT: 
+                
+                // 2. ADDED: Spin the wrapper so it aligns with the sole perfectly
                 if (category === 'upper' || category === 'laces') {
                     wrapper.rotation.y = -Math.PI / 2; 
                 }
-
+                
                 wrapper.add(rawGroup);
-
                 shoeModules[category] = wrapper;
                 shoe.add(wrapper);
             } else {
@@ -534,8 +528,9 @@ function init3DEnvironment() {
             targetGroup.traverse(node => {
                 if(node.isMesh) {
                     node.castShadow = true; node.receiveShadow = true;
-                    let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
-                    node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
+                    node.material = new THREE.MeshStandardMaterial({
+                        color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
+                    });
                     node.userData.baseScale = node.scale.clone();
                     node.userData.parentModule = targetGroup; 
                     
@@ -559,12 +554,10 @@ function init3DEnvironment() {
                 console.warn('No laces found. Skipping gracefully.');
                 let emptyLaces = new THREE.Group();
                 emptyLaces.userData.category = 'laces';
-                emptyLaces.userData.baseScale = new THREE.Vector3(1,1,1);
-                emptyLaces.userData.targetY = 0;
                 shoeModules['laces'] = emptyLaces;
                 shoe.add(emptyLaces);
             } else {
-                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>. Check your GitHub repository 'models' folder.");
+                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>.");
             }
             checkAllLoaded();
         });
@@ -580,25 +573,25 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // 🧠 EXACT FUNCTION FROM YOUR PASTED CODE
+    // 🧠 EXACT STACKING MATH FROM YOUR CODE YESTERDAY
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
-
+        
         shoeModules.sole.updateMatrixWorld(true);
         let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
-
+        
         let rawUpper = shoeModules.upper.children[0];
         if (!rawUpper) return;
         rawUpper.updateMatrixWorld(true);
         let upperBox = new THREE.Box3().setFromObject(rawUpper);
-
+        
         let soleHeight = soleBox.max.y - soleBox.min.y;
         let upperHeight = upperBox.max.y - upperBox.min.y;
-
-        let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.05;
-
+        
+        let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.05; 
+        
         shoeModules.upper.userData.targetY = stackY;
-
+        
         if (shoeModules.laces && shoeModules.laces.children.length > 0) {
             let rawLaces = shoeModules.laces.children[0];
             rawLaces.updateMatrixWorld(true);
@@ -612,9 +605,7 @@ function init3DEnvironment() {
         if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
             window.updateStackTargets();
             shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
-            if(shoeModules.laces && shoeModules.laces.userData.targetY !== undefined) {
-                shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
-            }
+            if(shoeModules.laces) shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
         }
 
         const combinedBox = new THREE.Box3().setFromObject(shoe);
@@ -633,27 +624,29 @@ function init3DEnvironment() {
             }
         }
 
-        selectableParts.forEach(p => {
-            p.userData.basePos = p.position.clone();
-            p.userData.targetY = p.position.y;
-            
-            if (currentMode === 'designer' && p.userData.category !== 'sole') {
-                p.visible = false; 
-            } else {
-                p.visible = true; 
-            }
-        });
+        if (currentMode === 'designer') {
+            Object.values(shoeModules).forEach(mod => {
+                if (mod) {
+                    mod.userData.basePos = mod.position.clone();
+                    if (mod.userData.targetY === undefined) mod.userData.targetY = mod.position.y;
+                    mod.visible = false; 
+                }
+            });
+            if(shoeModules.sole) shoeModules.sole.visible = true;
+        } else {
+            selectableParts.forEach(p => {
+                p.userData.basePos = p.position.clone();
+                p.userData.targetY = p.position.y;
+            });
+        }
 
         const loadScreen = document.getElementById('loading-screen');
         loadScreen.style.opacity = '0';
         setTimeout(() => { 
             loadScreen.style.display = 'none'; 
             if(currentMode === 'designer') {
-                showToast("Studio locked to Dynamic Math Assembly.");
+                showToast("Studio locked to Auto-Snapping Assembly.");
                 designerStep(0); 
-            } else {
-                document.getElementById('instruction-text').style.display = 'block';
-                showToast(currentMode.toUpperCase() + " Mode Active.");
             }
         }, 500);
     }
@@ -665,7 +658,9 @@ function init3DEnvironment() {
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
-        let validMeshes = selectableParts.filter(p => p.visible !== false);
+        let validMeshes = selectableParts;
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        
         const hits = raycaster.intersectObjects(validMeshes, true);
 
         if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
@@ -687,16 +682,15 @@ function init3DEnvironment() {
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
-        let validMeshes = selectableParts.filter(p => p.visible !== false);
+        let validMeshes = selectableParts;
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        
         const hits = raycaster.intersectObjects(validMeshes, true);
         
         if (hits.length > 0) selectPart(hits[0].object);
     });
 
-    if (!window.animationLoopRunning) {
-        window.animationLoopRunning = true;
-        animate();
-    }
+    animate();
 }
 
 function selectPart(target) {
@@ -720,11 +714,20 @@ function selectPart(target) {
             targetMod = activePart.userData.parentModule;
         }
         
-        if (!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return; 
+        // Ensure scale exists so it doesn't crash!
+        if (!targetMod.userData.baseScale) {
+            targetMod.userData.baseScale = targetMod.scale.clone();
+        }
         
-        document.getElementById('scale-x').value = targetMod.scale.x / targetMod.userData.baseScale.x;
+        // Dynamically match axes based on the wrapper spin
+        let mapX = 'x', mapZ = 'z';
+        if (currentMode === 'designer' && targetMod.userData.category !== 'sole') {
+             mapX = 'z'; mapZ = 'x'; 
+        }
+
+        document.getElementById('scale-x').value = targetMod.scale[mapX] / targetMod.userData.baseScale[mapX];
         document.getElementById('scale-y').value = targetMod.scale.y / targetMod.userData.baseScale.y;
-        document.getElementById('scale-z').value = targetMod.scale.z / targetMod.userData.baseScale.z;
+        document.getElementById('scale-z').value = targetMod.scale[mapZ] / targetMod.userData.baseScale[mapZ];
         
         updateSliderText();
         runSafetyEngine(document.getElementById('scale-y').value, 'y');
@@ -746,6 +749,7 @@ function designerStep(direction) {
     document.getElementById('shared-tools').style.display = 'block';
 
     let dropOffset = 8; 
+    if (shoe && shoe.scale.y) dropOffset = 8 / shoe.scale.y; 
 
     if(designerCurrentStep === 1) {
         document.getElementById('ds-p1').classList.add('active');
@@ -762,20 +766,13 @@ function designerStep(direction) {
         showToast("Loading Modular Sole...");
         
         if (shoeModules.sole) {
-            shoeModules.sole.userData.targetY = 0; 
-            shoeModules.sole.position.y = dropOffset; 
+            shoeModules.sole.visible = true;
+            shoeModules.sole.position.y = shoeModules.sole.userData.basePos.y + dropOffset; 
+            let first = null; shoeModules.sole.traverse(n => {if(n.isMesh && !first) first = n;});
+            if(first) selectPart(first);
         }
-
-        let first = null;
-        selectableParts.forEach(p => {
-            if(p.userData.category === 'sole') {
-                p.visible = true;
-                if(!first) first = p;
-            } else {
-                p.visible = false;
-            }
-        });
-        if(first) selectPart(first);
+        if (shoeModules.upper) shoeModules.upper.visible = false;
+        if (shoeModules.laces) shoeModules.laces.visible = false;
     } 
     else if (designerCurrentStep === 2) {
         document.getElementById('ds-p1').classList.add('active');
@@ -793,20 +790,11 @@ function designerStep(direction) {
         showToast("Loading Modular Upper...");
 
         if (shoeModules.upper) {
-            window.updateStackTargets();
-            if (shoeModules.upper.userData.targetY !== undefined) {
-                 shoeModules.upper.position.y = shoeModules.upper.userData.targetY + dropOffset; 
-            }
+            shoeModules.upper.visible = true;
+            shoeModules.upper.position.y = shoeModules.upper.userData.basePos.y + dropOffset;
+            let first = null; shoeModules.upper.traverse(n => {if(n.isMesh && !first) first = n;});
+            if(first) selectPart(first);
         }
-
-        let first = null;
-        selectableParts.forEach(p => {
-            if(p.userData.category === 'upper') {
-                p.visible = true;
-                if(!first) first = p;
-            }
-        });
-        if(first) selectPart(first);
     }
     else if (designerCurrentStep === 3) {
         document.getElementById('ds-p1').classList.add('active');
@@ -824,23 +812,15 @@ function designerStep(direction) {
         showToast("Loading Accessories...");
 
         if (shoeModules.laces && shoeModules.laces.children.length > 0) {
-            if (shoeModules.laces.userData.targetY !== undefined) {
-                shoeModules.laces.position.y = shoeModules.laces.userData.targetY + dropOffset; 
-            }
-        }
-
-        let first = null;
-        selectableParts.forEach(p => {
-            if(p.userData.category === 'laces') {
-                p.visible = true;
-                if(!first) first = p;
-            }
-        });
-        if(first) {
-            selectPart(first);
+            shoeModules.laces.visible = true;
+            shoeModules.laces.position.y = shoeModules.laces.userData.basePos.y + dropOffset;
+            let first = null; shoeModules.laces.traverse(n => {if(n.isMesh && !first) first = n;});
+            if(first) selectPart(first);
         } else {
-             let u = selectableParts.find(p => p.userData.category === 'upper');
-             if(u) selectPart(u);
+             if (shoeModules.upper) {
+                 let first = null; shoeModules.upper.traverse(n => {if(n.isMesh && !first) first = n;});
+                 if(first) selectPart(first);
+             }
         }
     }
     else if (designerCurrentStep > 3) {
@@ -858,15 +838,15 @@ window.simulateHighTop = (type, btn) => {
     if (currentMode === 'designer' && activePart.userData.parentModule) {
         targetMod = activePart.userData.parentModule;
     }
-    if(!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return;
+    if(!targetMod) return;
 
     if(type === 'high') {
         targetMod.scale.y = targetMod.userData.baseScale.y * 1.5;
-        if (targetMod.userData.targetY !== undefined) targetMod.userData.targetY += 0.8; 
+        targetMod.userData.targetY += 0.8; 
         showToast("Upper chassis extended to High Top profile.");
     } else {
         targetMod.scale.y = targetMod.userData.baseScale.y;
-        if (targetMod.userData.targetY !== undefined) targetMod.userData.targetY -= 0.8;
+        targetMod.userData.targetY -= 0.8;
         showToast("Upper chassis restored to Low Top profile.");
     }
     window.updateStackTargets();
@@ -880,10 +860,17 @@ window.applyScale = (axis, value) => {
     if (currentMode === 'designer' && activePart.userData.parentModule) {
         targetMod = activePart.userData.parentModule;
     }
+    if (!targetMod.userData.baseScale) {
+        targetMod.userData.baseScale = targetMod.scale.clone();
+    }
     
-    if (!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return;
+    let targetAxis = axis;
+    if (currentMode === 'designer' && targetMod.userData.category !== 'sole') {
+        if (axis === 'x') targetAxis = 'z';
+        else if (axis === 'z') targetAxis = 'x';
+    }
     
-    targetMod.scale[axis] = targetMod.userData.baseScale[axis] * newScale;
+    targetMod.scale[targetAxis] = targetMod.userData.baseScale[targetAxis] * newScale;
     updateSliderText();
     
     if(currentMode === 'designer' && targetMod === shoeModules.sole && axis === 'y') {
@@ -895,7 +882,7 @@ window.applyScale = (axis, value) => {
         const delta = (newScale - 1) * 0.4; 
         selectableParts.forEach(node => {
             if(node.userData.category !== 'sole') {
-                if (node.userData.basePos.y !== undefined) node.userData.targetY = node.userData.basePos.y + delta;
+                node.userData.targetY = node.userData.basePos.y + delta;
             }
         });
     }
