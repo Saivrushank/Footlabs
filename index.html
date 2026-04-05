@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     
     <style>
-        body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Helvetica Neue', 'Roboto', sans-serif; color: #111; }
+        body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Roboto', sans-serif; color: #111; }
         
         #error-log { display: none; position: fixed; top: 0; left: 0; right: 0; background: #c92a2a; color: white; padding: 15px 30px; z-index: 9999; font-family: 'Share Tech Mono', monospace; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-bottom: 4px solid #861616;}
         
@@ -201,7 +201,7 @@
                     </div>
                     <div class="mode-card" onclick="launchStudio('designer')">
                         <h3>MODULAR BUILD</h3>
-                        <p>Guided assembly using your custom Onshape modules.</p>
+                        <p>Guided assembly using your custom CAD modules.</p>
                     </div>
                 </div>
             </div>
@@ -492,30 +492,22 @@ function init3DEnvironment() {
             let rawGroup = gltf.scene;
             
             if (!isMonolithic) {
-                // Remove rotations on rawGroup so math doesn't break
-                rawGroup.updateMatrixWorld(true);
-                let box = new THREE.Box3().setFromObject(rawGroup);
-                let center = new THREE.Vector3();
-                
-                // Invisible NaN shield prevents disappearing upper
-                if(!box.isEmpty() && isFinite(box.max.y)) {
-                    box.getCenter(center);
-                }
-                
-                rawGroup.position.set(-center.x, -center.y, -center.z);
+                // 🔧 FIX 1: DO NOT RECENTER (Preserves Original CAD Pivot)
+                rawGroup.position.set(0, 0, 0);
+                rawGroup.rotation.set(0, 0, 0); 
+                rawGroup.scale.set(1, 1, 1);
                 rawGroup.updateMatrixWorld(true);
 
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
+                
+                // 🔧 FIX 2: Slider Safety
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
                 
-                // ADDED: The 90 degree turns happen here on the wrapper so they don't break the original math!
-                if (category === 'upper' || category === 'laces') {
-                    wrapper.rotation.x = -Math.PI / 2; // Stand up
-                    wrapper.rotation.z = -Math.PI / 2; // Spin forward
-                }
-
+                // Native CAD drop point setup (Local Z is Up in Onshape)
+                wrapper.userData.targetZ = 0; 
+                
                 wrapper.add(rawGroup);
                 shoeModules[category] = wrapper;
                 shoe.add(wrapper);
@@ -557,10 +549,11 @@ function init3DEnvironment() {
                 console.warn('No laces found. Skipping gracefully.');
                 let emptyLaces = new THREE.Group();
                 emptyLaces.userData.category = 'laces';
+                emptyLaces.userData.targetZ = 0;
                 shoeModules['laces'] = emptyLaces;
                 shoe.add(emptyLaces);
             } else {
-                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>.");
+                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>. Make sure it is in your GitHub repo.");
             }
             checkAllLoaded();
         });
@@ -575,47 +568,11 @@ function init3DEnvironment() {
     }
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
-    
-    window.updateStackTargets = function() {
-        if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
-
-        shoeModules.sole.updateMatrixWorld(true);
-        let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
-
-        let rawUpper = shoeModules.upper.children[0];
-        if (!rawUpper) return;
-        rawUpper.updateMatrixWorld(true);
-        let upperBox = new THREE.Box3().setFromObject(rawUpper);
-
-        // NaN-Shield to prevent disappearing
-        if (soleBox.isEmpty() || upperBox.isEmpty() || !isFinite(soleBox.max.y) || !isFinite(upperBox.max.y)) return;
-
-        let soleHeight = soleBox.max.y - soleBox.min.y;
-        let upperHeight = upperBox.max.y - upperBox.min.y;
-
-        let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.05;
-
-        shoeModules.upper.userData.targetY = stackY;
-
-        if (shoeModules.laces && shoeModules.laces.children.length > 0) {
-            let rawLaces = shoeModules.laces.children[0];
-            rawLaces.updateMatrixWorld(true);
-            let lacesBox = new THREE.Box3().setFromObject(rawLaces);
-            if (!lacesBox.isEmpty() && isFinite(lacesBox.max.y)) {
-                let lacesHeight = lacesBox.max.y - lacesBox.min.y;
-                shoeModules.laces.userData.targetY = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
-            }
-        }
-    };
 
     function finalizeEngineSetup() {
-        if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
-            window.updateStackTargets();
-            shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
-            if(shoeModules.laces && shoeModules.laces.userData.targetY !== undefined) {
-                shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
-            }
-        }
+        // 🔧 FIX 3: Single Global Rotation (Matches Onshape to WebGL perfectly)
+        shoe.rotation.x = -Math.PI / 2;
+        shoe.updateMatrixWorld(true);
 
         const combinedBox = new THREE.Box3().setFromObject(shoe);
         if(!combinedBox.isEmpty()) {
@@ -626,6 +583,7 @@ function init3DEnvironment() {
             if (maxDim > 0 && maxDim !== Infinity && !isNaN(maxDim)) {
                 const scale = 8 / maxDim;
                 shoe.scale.set(scale, scale, scale);
+                // Center the global parent object
                 shoe.position.sub(center.multiplyScalar(scale));
                 shoe.position.y += 0.5;
                 shoe.position.x -= 1.5; 
@@ -637,7 +595,8 @@ function init3DEnvironment() {
             Object.values(shoeModules).forEach(mod => {
                 if (mod) {
                     mod.userData.basePos = mod.position.clone();
-                    if (mod.userData.targetY === undefined) mod.userData.targetY = mod.position.y;
+                    // Set pieces high up on the Local Z Axis so they can drop down to their native CAD 0,0,0
+                    mod.position.z = 15; 
                     mod.visible = false; 
                 }
             });
@@ -654,8 +613,11 @@ function init3DEnvironment() {
         setTimeout(() => { 
             loadScreen.style.display = 'none'; 
             if(currentMode === 'designer') {
-                showToast("Studio locked to Auto-Snapping Assembly.");
+                showToast("Studio locked to Native CAD Assembly.");
                 designerStep(0); 
+            } else {
+                document.getElementById('instruction-text').style.display = 'block';
+                showToast(currentMode.toUpperCase() + " Mode Active.");
             }
         }, 500);
     }
@@ -668,7 +630,7 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule && p.userData.parentModule.visible !== false);
         
         const hits = raycaster.intersectObjects(validMeshes, true);
 
@@ -692,14 +654,17 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule && p.userData.parentModule.visible !== false);
         
         const hits = raycaster.intersectObjects(validMeshes, true);
         
         if (hits.length > 0) selectPart(hits[0].object);
     });
 
-    animate();
+    if (!window.animationLoopRunning) {
+        window.animationLoopRunning = true;
+        animate();
+    }
 }
 
 function selectPart(target) {
@@ -718,23 +683,22 @@ function selectPart(target) {
     if(currentMode === 'advanced' || currentMode === 'designer') {
         document.getElementById('cad-sliders').style.display = 'block';
         
-        // 🚨 CRASH GUARD: Impervious safety fallback
         let targetMod = activePart;
         if (currentMode === 'designer' && activePart.userData.parentModule) {
             targetMod = activePart.userData.parentModule;
         }
         
-        if (!targetMod || !targetMod.scale) return; // Silent abort instead of crash
-        if (!targetMod.userData.baseScale) targetMod.userData.baseScale = new THREE.Vector3(1, 1, 1);
+        if (!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return; 
         
-        // Match slider axes due to rotation
-        let mapX = 'x', mapZ = 'z';
-        if (currentMode === 'designer' && targetMod.userData.category !== 'sole') {
-             mapX = 'z'; mapZ = 'x'; 
+        // Ensure UI sliders map logically to the CAD object
+        let mapX = 'x', mapY = 'y', mapZ = 'z';
+        if (currentMode === 'designer') {
+            mapY = 'z'; // Thickness scales up vertically (Local CAD Z is Up)
+            mapZ = 'y'; // Length scales back to front (Local CAD Y)
         }
 
         document.getElementById('scale-x').value = targetMod.scale[mapX] / targetMod.userData.baseScale[mapX];
-        document.getElementById('scale-y').value = targetMod.scale.y / targetMod.userData.baseScale.y;
+        document.getElementById('scale-y').value = targetMod.scale[mapY] / targetMod.userData.baseScale[mapY];
         document.getElementById('scale-z').value = targetMod.scale[mapZ] / targetMod.userData.baseScale[mapZ];
         
         updateSliderText();
@@ -756,8 +720,7 @@ function designerStep(direction) {
     document.getElementById('ds-p3').classList.remove('active');
     document.getElementById('shared-tools').style.display = 'block';
 
-    let dropOffset = 8; 
-    if (shoe && shoe.scale.y) dropOffset = 8 / shoe.scale.y; 
+    let dropOffset = 15; 
 
     if(designerCurrentStep === 1) {
         document.getElementById('ds-p1').classList.add('active');
@@ -775,7 +738,7 @@ function designerStep(direction) {
         
         if (shoeModules.sole) {
             shoeModules.sole.visible = true;
-            shoeModules.sole.position.y = shoeModules.sole.userData.basePos.y + dropOffset; 
+            shoeModules.sole.position.z = dropOffset; 
             let first = null; shoeModules.sole.traverse(n => {if(n.isMesh && !first) first = n;});
             if(first) selectPart(first);
         }
@@ -799,7 +762,7 @@ function designerStep(direction) {
 
         if (shoeModules.upper) {
             shoeModules.upper.visible = true;
-            shoeModules.upper.position.y = shoeModules.upper.userData.basePos.y + dropOffset;
+            shoeModules.upper.position.z = dropOffset;
             let first = null; shoeModules.upper.traverse(n => {if(n.isMesh && !first) first = n;});
             if(first) selectPart(first);
         }
@@ -821,7 +784,7 @@ function designerStep(direction) {
 
         if (shoeModules.laces && shoeModules.laces.children.length > 0) {
             shoeModules.laces.visible = true;
-            shoeModules.laces.position.y = shoeModules.laces.userData.basePos.y + dropOffset;
+            shoeModules.laces.position.z = dropOffset;
             let first = null; shoeModules.laces.traverse(n => {if(n.isMesh && !first) first = n;});
             if(first) selectPart(first);
         } else {
@@ -846,18 +809,15 @@ window.simulateHighTop = (type, btn) => {
     if (currentMode === 'designer' && activePart.userData.parentModule) {
         targetMod = activePart.userData.parentModule;
     }
-    if(!targetMod) return;
+    if(!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return;
 
     if(type === 'high') {
-        targetMod.scale.y = targetMod.userData.baseScale.y * 1.5;
-        targetMod.userData.targetY += 0.8; 
+        targetMod.scale.z = targetMod.userData.baseScale.z * 1.5;
         showToast("Upper chassis extended to High Top profile.");
     } else {
-        targetMod.scale.y = targetMod.userData.baseScale.y;
-        targetMod.userData.targetY -= 0.8;
+        targetMod.scale.z = targetMod.userData.baseScale.z;
         showToast("Upper chassis restored to Low Top profile.");
     }
-    window.updateStackTargets();
 };
 
 window.applyScale = (axis, value) => {
@@ -873,28 +833,13 @@ window.applyScale = (axis, value) => {
     }
     
     let targetAxis = axis;
-    if (currentMode === 'designer' && targetMod.userData.category !== 'sole') {
-        if (axis === 'x') targetAxis = 'z';
-        else if (axis === 'z') targetAxis = 'x';
+    if (currentMode === 'designer') {
+        if (axis === 'y') targetAxis = 'z'; 
+        else if (axis === 'z') targetAxis = 'y';
     }
     
     targetMod.scale[targetAxis] = targetMod.userData.baseScale[targetAxis] * newScale;
     updateSliderText();
-    
-    if(currentMode === 'designer' && targetMod === shoeModules.sole && axis === 'y') {
-        showToast("Chassis realigning to sync with new sole volume.");
-        window.updateStackTargets();
-    } 
-    else if (currentMode !== 'designer' && activePart.userData.category === 'sole' && axis === 'y') {
-        showToast("Chassis realigning to sync with new sole volume.");
-        const delta = (newScale - 1) * 0.4; 
-        selectableParts.forEach(node => {
-            if(node.userData.category !== 'sole') {
-                node.userData.targetY = node.userData.basePos.y + delta;
-            }
-        });
-    }
-    
     runSafetyEngine(newScale, axis);
 };
 
@@ -1019,19 +964,12 @@ window.takeSnapshot = () => {
 function animate() {
     requestAnimationFrame(animate);
     
+    // Animate drop on Local Z axis since CAD origin is preserved
     if (currentMode === 'designer') {
         Object.values(shoeModules).forEach(mod => {
-            if (mod && mod.visible !== false && mod.userData.targetY !== undefined) {
-                if (Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
-                    mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
-                }
-            }
-        });
-    } else {
-        selectableParts.forEach(p => {
-            if (p.visible !== false && p.userData.targetY !== undefined) {
-                if (Math.abs(p.position.y - p.userData.targetY) > 0.005) {
-                    p.position.y += (p.userData.targetY - p.position.y) * 0.15;
+            if (mod && mod.visible !== false && mod.userData.targetZ !== undefined) {
+                if (Math.abs(mod.position.z - mod.userData.targetZ) > 0.005) {
+                    mod.position.z += (mod.userData.targetZ - mod.position.z) * 0.15;
                 }
             }
         });
