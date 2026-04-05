@@ -153,12 +153,12 @@
 <script>
 // ==========================================
 // 🛠️ ONSHAPE ALIGNMENT CONTROLS 🛠️
-// The Upper and Laces are spun 90 degrees on the Y-Axis to align with the Sole.
+// Reverted back to perfectly flat horizontal alignment!
 // ==========================================
 const ONSHAPE_ALIGN = {
     'sole':  { x: 0, y: 0, z: 0 },
-    'upper': { x: -Math.PI / 2, y: -Math.PI / 2, z: 0 }, // <-- Spun 90 degrees!
-    'laces': { x: -Math.PI / 2, y: -Math.PI / 2, z: 0 }  // <-- Spun 90 degrees!
+    'upper': { x: -Math.PI / 2, y: 0, z: -Math.PI / 2 }, 
+    'laces': { x: -Math.PI / 2, y: 0, z: -Math.PI / 2 }  
 };
 // ==========================================
 
@@ -326,6 +326,8 @@ function init3DEnvironment() {
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
+                
+                // 🚨 CRASH GUARD 1: Prevent "undefined scale"
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1); 
                 wrapper.add(rawGroup);
 
@@ -347,6 +349,8 @@ function init3DEnvironment() {
                     let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
                     node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
                     node.userData.baseScale = node.scale.clone();
+                    
+                    // 🚨 CRASH GUARD 2: Proper parent binding
                     node.userData.parentModule = targetGroup; 
                     
                     if (isMonolithic) {
@@ -373,12 +377,13 @@ function init3DEnvironment() {
                 shoeModules['laces'] = emptyLaces;
                 shoe.add(emptyLaces);
             } else {
-                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>.");
+                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>. Check your GitHub repository 'models' folder.");
             }
             checkAllLoaded();
         });
     };
 
+    // --- ARCHITECTURE BRANCHING: Reverted back to the original GLTF files ---
     if (currentMode === 'template' || currentMode === 'advanced') {
         loadModule('updatedshoe.glb', 'sole', true); 
     } else if (currentMode === 'designer') {
@@ -389,11 +394,12 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
+    // 🧠 GLOBALLY SCOPED MATH: Crash Guard Active
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
         
         let rawUpper = shoeModules.upper.children[0];
-        if (!rawUpper) return; 
+        if (!rawUpper) return; // Safety abort if Upper isn't fully built
         
         shoeModules.sole.updateMatrixWorld(true);
         let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
@@ -522,6 +528,7 @@ function selectPart(target) {
     if(currentMode === 'advanced' || currentMode === 'designer') {
         document.getElementById('cad-sliders').style.display = 'block';
         
+        // 🚨 CRASH GUARD 3: Impervious slider fallback
         let targetMod = activePart;
         if (currentMode === 'designer' && activePart.userData.parentModule) {
             targetMod = activePart.userData.parentModule;
@@ -657,30 +664,37 @@ window.simulateHighTop = (type, btn) => {
     document.querySelectorAll('#ds-upper-tools .mat-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     
-    if (currentMode === 'designer' && shoeModules.upper) {
-        if(type === 'high') {
-            shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y * 1.5;
-            shoeModules.upper.userData.targetY += 0.8; 
-            showToast("Upper chassis extended to High Top profile.");
-        } else {
-            shoeModules.upper.scale.y = shoeModules.upper.userData.baseScale.y;
-            shoeModules.upper.userData.targetY -= 0.8;
-            showToast("Upper chassis restored to Low Top profile.");
-        }
-        window.updateStackTargets();
+    let targetMod = activePart;
+    if (currentMode === 'designer' && activePart.userData.parentModule) {
+        targetMod = activePart.userData.parentModule;
     }
+    if(!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return;
+
+    if(type === 'high') {
+        targetMod.scale.y = targetMod.userData.baseScale.y * 1.5;
+        targetMod.userData.targetY += 0.8; 
+        showToast("Upper chassis extended to High Top profile.");
+    } else {
+        targetMod.scale.y = targetMod.userData.baseScale.y;
+        targetMod.userData.targetY -= 0.8;
+        showToast("Upper chassis restored to Low Top profile.");
+    }
+    window.updateStackTargets();
 };
 
 window.applyScale = (axis, value) => {
     if(!activePart) return;
     const newScale = parseFloat(value);
     
+    // 🚨 CRASH GUARD 4: Prevent "Cannot read properties of undefined (reading 'x')" 
     let targetMod = activePart;
     if (currentMode === 'designer' && activePart.userData.parentModule) {
         targetMod = activePart.userData.parentModule;
     }
     
-    if (!targetMod || !targetMod.scale || !targetMod.userData.baseScale) return;
+    if (!targetMod || !targetMod.scale || !targetMod.userData.baseScale) {
+        return; // Hard exit before crash
+    }
     
     targetMod.scale[axis] = targetMod.userData.baseScale[axis] * newScale;
     updateSliderText();
@@ -845,6 +859,7 @@ function animate() {
     if(renderer && scene && camera) renderer.render(scene, camera);
 }
 
+// 🚨 CRASH GUARD 5: Safely ignore resize events before camera is built
 window.addEventListener('resize', () => {
     const container = document.getElementById('canvas-container');
     if(!container || !camera || !renderer) return; 
