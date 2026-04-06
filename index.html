@@ -11,6 +11,10 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/three-csg-ts@3.1.11/lib/three-csg-ts.umd.js"></script>
+    
     <style>
         body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Roboto', sans-serif; color: #111; }
         
@@ -114,12 +118,6 @@
         #safety-readout { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 15px; border-radius: 6px; font-family: 'Share Tech Mono'; font-size: 11px; margin-top: 30px; transition: 0.3s; pointer-events: none;}
         #safety-readout.warning { background: #ffebee; border-color: #ffcdd2; color: #c62828; animation: pulse 1s infinite;}
         
-        @keyframes pulse { 
-            0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 
-            70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 
-            100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } 
-        }
-
         .ds-controls { display: flex; justify-content: space-between; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;}
         .ds-btn { padding: 12px 20px; border: 1px solid #111; background: transparent; border-radius: 30px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s; color: #111;}
         .ds-btn:hover { background: #111; color: #fff;}
@@ -201,7 +199,7 @@
                     </div>
                     <div class="mode-card" onclick="launchStudio('designer')">
                         <h3>MODULAR BUILD</h3>
-                        <p>Guided assembly using your custom Onshape modules.</p>
+                        <p>Guided assembly using your custom CAD modules.</p>
                     </div>
                 </div>
             </div>
@@ -288,6 +286,23 @@
                         <input type="color" id="native-color-picker" oninput="applyCustomColor(this.value)">
                     </div>
                 </div>
+                
+                <div id="sculpting-section" style="display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px;">
+                    <div class="option-label" style="color: #e6a822;">4. Boolean Sculpting</div>
+                    <p style="font-size: 11px; color: #888; margin-top: -10px; margin-bottom: 15px;">Click the 3D model to place markers. Click again to remove.</p>
+                    <div class="mat-grid">
+                        <button class="mat-btn selected" onclick="setSculptTool('none', this)">None</button>
+                        <button class="mat-btn" onclick="setSculptTool('cylinder', this)">Cylinder</button>
+                        <button class="mat-btn" onclick="setSculptTool('cuboid', this)">Cuboid</button>
+                    </div>
+                    <div id="sculpt-controls" style="display:none; margin-bottom: 15px;">
+                        <div class="slider-group">
+                            <label><span>Cut Tool Size</span> <span id="val-sculpt">0.50</span></label>
+                            <input type="range" id="tool-size" min="0.1" max="2.0" step="0.1" value="0.5" oninput="document.getElementById('val-sculpt').innerText=parseFloat(this.value).toFixed(2)">
+                        </div>
+                        <button class="ds-btn primary" style="width:100%; margin:0; background: #c92a2a; border-color: #c92a2a;" onclick="executeCarve()">CARVE HIGHLIGHTED SPOTS</button>
+                    </div>
+                </div>
 
                 <div id="cad-sliders" style="display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px;">
                     <div class="option-label">Parametric Manipulation</div>
@@ -320,6 +335,7 @@
                     <span id="price-tag">$120</span>
                 </div>
                 <button class="checkout-btn" onclick="showCheckout()">Finish Design</button>
+                <button class="ds-btn" style="width:100%; margin-top: 10px;" onclick="exportCAD()">Export CAD for 3D Print (.glb)</button>
             </div>
         </div>
     </div>
@@ -367,6 +383,11 @@ let designerCurrentStep = 1;
 
 let shoeModules = { sole: null, upper: null, laces: null };
 
+// 🚀 ADDED: Sculpting State Variables
+let currentSculptTool = 'none';
+let sculptMarkers = [];
+let markerGroup = new THREE.Group();
+
 function showToast(message) {
     const container = document.getElementById('toast-container');
     const toast = document.createElement('div');
@@ -397,6 +418,10 @@ function launchStudio(mode) {
     userPronation = document.getElementById('usr-pronation').value;
     
     document.getElementById('mode-badge').innerText = mode.toUpperCase() + (mode==='designer'?" BUILD":" MODE");
+    
+    if(mode === 'designer' || mode === 'advanced') {
+        document.getElementById('sculpting-section').style.display = 'block';
+    }
     
     if(mode === 'designer') {
         document.getElementById('instruction-text').style.display = 'none';
@@ -475,6 +500,9 @@ function init3DEnvironment() {
 
     shoe = new THREE.Group();
     scene.add(shoe);
+    
+    // Add Marker Group for Sculpting
+    scene.add(markerGroup);
 
     const loader = new THREE.GLTFLoader(manager);
 
@@ -492,11 +520,9 @@ function init3DEnvironment() {
             let rawGroup = gltf.scene;
             
             if (!isMonolithic) {
-                // DO NOT ROTATE THE RAW FILE. Let it stay completely horizontal.
                 rawGroup.rotation.set(0, 0, 0);
                 rawGroup.updateMatrixWorld(true);
                 
-                // Center the part perfectly so they stack clean
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
                 if(!box.isEmpty() && isFinite(box.max.y)) box.getCenter(center);
@@ -508,7 +534,6 @@ function init3DEnvironment() {
                 wrapper.userData.name = category.toUpperCase();
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
                 
-                // Spin all pieces 90 degrees uniformly to face the camera
                 wrapper.rotation.y = -Math.PI / 2; 
                 
                 wrapper.add(rawGroup);
@@ -571,7 +596,6 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // YOUR EXACT MATHEMATICAL STACKING LOGIC
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
         
@@ -586,8 +610,7 @@ function init3DEnvironment() {
         let soleHeight = soleBox.max.y - soleBox.min.y;
         let upperHeight = upperBox.max.y - upperBox.min.y;
         
-        // Pushes the Upper firmly onto the sole
-        let stackY = (soleHeight / 2) + (upperHeight / 2) +0.0001; 
+        let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.05; 
         
         shoeModules.upper.userData.targetY = stackY;
         
@@ -604,6 +627,11 @@ function init3DEnvironment() {
         if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
             window.updateStackTargets();
             shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
+            
+            // MANUAL NUDGING (Adjust these values if the Upper shifts)
+            // shoeModules.upper.children[0].position.x += 0.0;
+            // shoeModules.upper.children[0].position.z += 0.0;
+            
             if(shoeModules.laces && shoeModules.laces.userData.targetY !== undefined) {
                 shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
             }
@@ -633,7 +661,7 @@ function init3DEnvironment() {
                     mod.visible = false; 
                 }
             });
-            if(shoeModules.sole) shoeModules.sole.visible = true; // SOLE IS VISIBLE IN PHASE 1
+            if(shoeModules.sole) shoeModules.sole.visible = true; 
         } else {
             selectableParts.forEach(p => {
                 p.userData.basePos = p.position.clone();
@@ -667,15 +695,21 @@ function init3DEnvironment() {
         
         const hits = raycaster.intersectObjects(validMeshes, true);
 
-        if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
-        
-        if (hits.length > 0) {
-            hoveredPart = hits[0].object; 
-            container.style.cursor = 'crosshair';
-            if (hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x222222);
+        // Turn off hover effect if we are actively sculpting
+        if (currentSculptTool === 'none') {
+            if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
+            
+            if (hits.length > 0) {
+                hoveredPart = hits[0].object; 
+                container.style.cursor = 'crosshair';
+                if (hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x222222);
+            } else {
+                hoveredPart = null;
+                container.style.cursor = 'default';
+            }
         } else {
-            hoveredPart = null;
-            container.style.cursor = 'default';
+            // Sculpting Cursor
+            container.style.cursor = hits.length > 0 ? 'crosshair' : 'default';
         }
     });
 
@@ -686,16 +720,153 @@ function init3DEnvironment() {
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
+        // 🚀 SCULPTING MARKER LOGIC
+        if (currentSculptTool !== 'none' && activePart) {
+            
+            // 1. Check if we clicked an existing marker to DELETE it
+            const markerHits = raycaster.intersectObjects(markerGroup.children, true);
+            if (markerHits.length > 0) {
+                let clickedMarker = markerHits[0].object;
+                markerGroup.remove(clickedMarker);
+                sculptMarkers = sculptMarkers.filter(m => m !== clickedMarker);
+                return; // Stop here
+            }
+
+            // 2. Otherwise, check if we clicked the active part to ADD a marker
+            const hits = raycaster.intersectObject(activePart, true);
+            if (hits.length > 0) {
+                let intersect = hits[0];
+                let size = parseFloat(document.getElementById('tool-size').value);
+                
+                let geo;
+                // Length is locked to 10 so it pierces completely through the shoe
+                if (currentSculptTool === 'cylinder') geo = new THREE.CylinderGeometry(size, size, 10, 32);
+                else geo = new THREE.BoxGeometry(size * 2, size * 2, 10); 
+                
+                let mat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.5, depthTest: false });
+                let marker = new THREE.Mesh(geo, mat);
+                
+                // Snap exactly to the point clicked
+                marker.position.copy(intersect.point);
+                
+                // Orient the tool to dig straight into the face
+                let target = intersect.point.clone().add(intersect.face.normal);
+                marker.lookAt(target);
+                if(currentSculptTool === 'cylinder') marker.rotateX(Math.PI/2); 
+                
+                markerGroup.add(marker);
+                sculptMarkers.push(marker);
+            }
+            return; // Prevent the regular "part selection" logic from firing
+        }
+        
+        // REGULAR SELECTION LOGIC
         let validMeshes = selectableParts;
         if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
         
         const hits = raycaster.intersectObjects(validMeshes, true);
-        
         if (hits.length > 0) selectPart(hits[0].object);
     });
 
     animate();
 }
+
+// 🚀 SCULPTING TOOL CONTROLS
+window.setSculptTool = (tool, btn) => {
+    currentSculptTool = tool;
+    document.querySelectorAll('#sculpting-section .mat-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    
+    if (tool === 'none') {
+        document.getElementById('sculpt-controls').style.display = 'none';
+        document.getElementById('cad-sliders').style.display = 'block'; // Show normal sliders
+    } else {
+        document.getElementById('sculpt-controls').style.display = 'block';
+        document.getElementById('cad-sliders').style.display = 'none'; // Hide normal sliders while cutting
+        
+        if(!activePart) {
+            showToast("Select a part (Sole or Upper) first to sculpt it.");
+            setSculptTool('none', document.querySelector('#sculpting-section .mat-btn'));
+        }
+    }
+};
+
+window.executeCarve = () => {
+    if (sculptMarkers.length === 0) {
+        showToast("Click the 3D model to place red cutting markers first.");
+        return;
+    }
+    
+    if (!window.CSG) {
+        showToast("CSG Mathematics Engine loading... Please try again in 2 seconds.");
+        return;
+    }
+
+    showToast("Processing Boolean Cut... Calculating Geometry.");
+    
+    // Slight timeout allows the Toast UI to render before the heavy math locks the browser
+    setTimeout(() => {
+        try {
+            activePart.updateMatrixWorld(true);
+            
+            // 1. Convert Target to CSG Math
+            let resultCSG = CSG.fromMesh(activePart);
+            
+            // 2. Subtract every marker individually
+            sculptMarkers.forEach(marker => {
+                marker.updateMatrixWorld(true);
+                let toolCSG = CSG.fromMesh(marker);
+                resultCSG = resultCSG.subtract(toolCSG);
+            });
+            
+            // 3. Convert back to Mesh
+            let newMesh = CSG.toMesh(resultCSG, activePart.matrixWorld, activePart.material);
+            
+            // 4. Clean Memory and Apply Geometry
+            activePart.geometry.dispose(); 
+            activePart.geometry = newMesh.geometry;
+            
+            // 5. Hard Reset Scale (Because CSG bakes the current scale permanently into the points)
+            activePart.scale.set(1,1,1);
+            if(activePart.userData.parentModule) {
+                activePart.userData.parentModule.scale.set(1,1,1);
+                activePart.userData.parentModule.userData.baseScale.set(1,1,1);
+            }
+            activePart.userData.baseScale.set(1,1,1);
+            updateSliderText();
+            
+            // 6. Delete the visual red markers
+            sculptMarkers.forEach(m => markerGroup.remove(m));
+            sculptMarkers = [];
+            
+            showToast("Carving Successful!");
+        } catch(e) {
+            console.error(e);
+            showToast("Error: Geometry Too Complex. Try fewer cuts.");
+        }
+    }, 100);
+};
+
+// 🚀 EXPORT 3D FILE FOR MANUFACTURER
+window.exportCAD = () => {
+    showToast("Packaging 3D Model...");
+    const exporter = new THREE.GLTFExporter();
+    
+    // Export the entire Shoe Group
+    exporter.parse(shoe, function (gltf) {
+        const blob = new Blob([gltf], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.style.display = 'none';
+        link.href = url;
+        link.download = 'Footlabs_Custom_Carved_Shoe.glb';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast("Download Complete!");
+    }, { binary: true });
+};
+
 
 function selectPart(target) {
     if(activePart) activePart.material.emissive.setHex(0x000000);
@@ -711,7 +882,11 @@ function selectPart(target) {
     clearColorSelections();
     
     if(currentMode === 'advanced' || currentMode === 'designer') {
-        document.getElementById('cad-sliders').style.display = 'block';
+        
+        // Only show CAD sliders if we aren't currently sculpting
+        if(currentSculptTool === 'none') {
+            document.getElementById('cad-sliders').style.display = 'block';
+        }
         
         let targetMod = activePart;
         if (currentMode === 'designer' && activePart.userData.parentModule) {
@@ -722,9 +897,8 @@ function selectPart(target) {
             targetMod.userData.baseScale = targetMod.scale.clone();
         }
         
-        // Match axes based on the uniform wrapper spin
         let mapX = 'x', mapZ = 'z';
-        if (currentMode === 'designer') {
+        if (currentMode === 'designer' && targetMod.userData.category !== 'sole') {
              mapX = 'z'; mapZ = 'x'; 
         }
 
@@ -760,7 +934,8 @@ function designerStep(direction) {
         document.getElementById('ds-prev').style.display = 'none';
         document.getElementById('ds-next').innerText = "Next Phase";
         document.getElementById('ds-upper-tools').style.display = 'none';
-        document.getElementById('cad-sliders').style.display = 'block'; 
+        
+        if(currentSculptTool === 'none') document.getElementById('cad-sliders').style.display = 'block'; 
         
         camera.position.set(-1.5, 2, 10); 
         controls.target.set(-1.5, 0, 0);
@@ -770,7 +945,8 @@ function designerStep(direction) {
         
         if (shoeModules.sole) {
             shoeModules.sole.visible = true;
-            shoeModules.sole.position.y = shoeModules.sole.userData.basePos.y + dropOffset; 
+            if (shoeModules.sole.userData.targetY === undefined) shoeModules.sole.userData.targetY = shoeModules.sole.position.y;
+            shoeModules.sole.position.y = shoeModules.sole.userData.targetY + dropOffset; 
             let first = null; shoeModules.sole.traverse(n => {if(n.isMesh && !first) first = n;});
             if(first) selectPart(first);
         }
@@ -784,7 +960,8 @@ function designerStep(direction) {
         document.getElementById('ds-prev').style.display = 'block';
         document.getElementById('ds-next').innerText = "Next Phase";
         document.getElementById('ds-upper-tools').style.display = 'block'; 
-        document.getElementById('cad-sliders').style.display = 'block'; 
+        
+        if(currentSculptTool === 'none') document.getElementById('cad-sliders').style.display = 'block'; 
         
         camera.position.set(8, 6, 8); 
         controls.target.set(-1.5, 1, 0);
@@ -868,7 +1045,7 @@ window.applyScale = (axis, value) => {
     }
     
     let targetAxis = axis;
-    if (currentMode === 'designer') {
+    if (currentMode === 'designer' && targetMod.userData.category !== 'sole') {
         if (axis === 'x') targetAxis = 'z';
         else if (axis === 'z') targetAxis = 'x';
     }
