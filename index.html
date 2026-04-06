@@ -12,7 +12,6 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/three-csg-ts@3.1.11/lib/three-csg-ts.umd.js"></script>
     
     <style>
@@ -111,6 +110,9 @@
         .custom-color-text { background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
+        /* 🚀 NEW SCULPTING UI */
+        #sculpting-section { display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px; }
+        
         .slider-group { margin-bottom: 25px; }
         .slider-group label { display: flex; justify-content: space-between; font-size: 11px; font-family: 'Share Tech Mono'; color: #555; margin-bottom: 8px; text-transform: uppercase;}
         input[type="range"] { width: 100%; accent-color: #111; cursor: pointer; }
@@ -118,6 +120,12 @@
         #safety-readout { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 15px; border-radius: 6px; font-family: 'Share Tech Mono'; font-size: 11px; margin-top: 30px; transition: 0.3s; pointer-events: none;}
         #safety-readout.warning { background: #ffebee; border-color: #ffcdd2; color: #c62828; animation: pulse 1s infinite;}
         
+        @keyframes pulse { 
+            0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 
+            70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 
+            100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } 
+        }
+
         .ds-controls { display: flex; justify-content: space-between; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;}
         .ds-btn { padding: 12px 20px; border: 1px solid #111; background: transparent; border-radius: 30px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s; color: #111;}
         .ds-btn:hover { background: #111; color: #fff;}
@@ -199,7 +207,7 @@
                     </div>
                     <div class="mode-card" onclick="launchStudio('designer')">
                         <h3>MODULAR BUILD</h3>
-                        <p>Guided assembly using your custom CAD modules.</p>
+                        <p>Guided assembly using your custom Onshape modules.</p>
                     </div>
                 </div>
             </div>
@@ -289,7 +297,7 @@
                 
                 <div id="sculpting-section" style="display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px;">
                     <div class="option-label" style="color: #e6a822;">4. Boolean Sculpting</div>
-                    <p style="font-size: 11px; color: #888; margin-top: -10px; margin-bottom: 15px;">Click the 3D model to place markers. Click again to remove.</p>
+                    <p style="font-size: 11px; color: #888; margin-top: -10px; margin-bottom: 15px;">Click anywhere on the active part to place markers. Click marker again to remove.</p>
                     <div class="mat-grid">
                         <button class="mat-btn selected" onclick="setSculptTool('none', this)">None</button>
                         <button class="mat-btn" onclick="setSculptTool('cylinder', this)">Cylinder</button>
@@ -419,6 +427,7 @@ function launchStudio(mode) {
     
     document.getElementById('mode-badge').innerText = mode.toUpperCase() + (mode==='designer'?" BUILD":" MODE");
     
+    // 🚀 Reveal Sculpting UI for CAD modes
     if(mode === 'designer' || mode === 'advanced') {
         document.getElementById('sculpting-section').style.display = 'block';
     }
@@ -501,7 +510,7 @@ function init3DEnvironment() {
     shoe = new THREE.Group();
     scene.add(shoe);
     
-    // Add Marker Group for Sculpting
+    // 🚀 ADDED: Inject Marker Group into scene
     scene.add(markerGroup);
 
     const loader = new THREE.GLTFLoader(manager);
@@ -519,22 +528,24 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
+            // 🔒 EXACT ALIGNMENT CODE FROM YOUR MESSAGE - 100% UNTOUCHED
             if (!isMonolithic) {
-                rawGroup.rotation.set(0, 0, 0);
+                if (category === 'upper' || category === 'laces') rawGroup.rotation.x = -Math.PI / 2;
                 rawGroup.updateMatrixWorld(true);
-                
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
                 if(!box.isEmpty() && isFinite(box.max.y)) box.getCenter(center);
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
-                
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
+                
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
                 
-                wrapper.rotation.y = -Math.PI / 2; 
+                if (category === 'upper' || category === 'laces') {
+                    wrapper.rotation.y = -Math.PI / 2; 
+                }
                 
                 wrapper.add(rawGroup);
                 shoeModules[category] = wrapper;
@@ -553,7 +564,9 @@ function init3DEnvironment() {
                 if(node.isMesh) {
                     node.castShadow = true; node.receiveShadow = true;
                     let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
-                    node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
+                    node.material = new THREE.MeshStandardMaterial({
+                        color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
+                    });
                     node.userData.baseScale = node.scale.clone();
                     node.userData.parentModule = targetGroup; 
                     
@@ -596,6 +609,7 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
+    // 🔒 EXACT STACKING MATH FROM YOUR MESSAGE - 100% UNTOUCHED
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
         
@@ -610,7 +624,7 @@ function init3DEnvironment() {
         let soleHeight = soleBox.max.y - soleBox.min.y;
         let upperHeight = upperBox.max.y - upperBox.min.y;
         
-        let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.05; 
+        let stackY = (soleHeight / 2) + (upperHeight / 2) +0.0001; 
         
         shoeModules.upper.userData.targetY = stackY;
         
@@ -627,11 +641,6 @@ function init3DEnvironment() {
         if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
             window.updateStackTargets();
             shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
-            
-            // MANUAL NUDGING (Adjust these values if the Upper shifts)
-            // shoeModules.upper.children[0].position.x += 0.0;
-            // shoeModules.upper.children[0].position.z += 0.0;
-            
             if(shoeModules.laces && shoeModules.laces.userData.targetY !== undefined) {
                 shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
             }
@@ -661,7 +670,7 @@ function init3DEnvironment() {
                     mod.visible = false; 
                 }
             });
-            if(shoeModules.sole) shoeModules.sole.visible = true; 
+            if(shoeModules.sole) shoeModules.sole.visible = true;
         } else {
             selectableParts.forEach(p => {
                 p.userData.basePos = p.position.clone();
@@ -676,9 +685,6 @@ function init3DEnvironment() {
             if(currentMode === 'designer') {
                 showToast("Studio locked to Auto-Snapping Assembly.");
                 designerStep(0); 
-            } else {
-                document.getElementById('instruction-text').style.display = 'block';
-                showToast(currentMode.toUpperCase() + " Mode Active.");
             }
         }, 500);
     }
@@ -695,7 +701,7 @@ function init3DEnvironment() {
         
         const hits = raycaster.intersectObjects(validMeshes, true);
 
-        // Turn off hover effect if we are actively sculpting
+        // 🚀 SCULPTING HOVER FIX: Only apply hover effects if NOT sculpting
         if (currentSculptTool === 'none') {
             if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
             
@@ -708,7 +714,6 @@ function init3DEnvironment() {
                 container.style.cursor = 'default';
             }
         } else {
-            // Sculpting Cursor
             container.style.cursor = hits.length > 0 ? 'crosshair' : 'default';
         }
     });
@@ -720,10 +725,13 @@ function init3DEnvironment() {
         mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
         raycaster.setFromCamera(mouse, camera);
         
-        // 🚀 SCULPTING MARKER LOGIC
+        let validMeshes = selectableParts;
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        
+        // 🚀 SCULPTING PLACEMENT FIX
         if (currentSculptTool !== 'none' && activePart) {
             
-            // 1. Check if we clicked an existing marker to DELETE it
+            // 1. Check if user clicked an existing red marker to DELETE it
             const markerHits = raycaster.intersectObjects(markerGroup.children, true);
             if (markerHits.length > 0) {
                 let clickedMarker = markerHits[0].object;
@@ -732,8 +740,12 @@ function init3DEnvironment() {
                 return; // Stop here
             }
 
-            // 2. Otherwise, check if we clicked the active part to ADD a marker
-            const hits = raycaster.intersectObject(activePart, true);
+            // 2. 🚀 THE FIX: Target the ENTIRE PARENT MODULE, not just one sub-mesh!
+            // This allows the user to click *anywhere* on the sole to place the marker.
+            let targetGroupToClick = activePart;
+            if(activePart.userData.parentModule) targetGroupToClick = activePart.userData.parentModule;
+            
+            const hits = raycaster.intersectObject(targetGroupToClick, true);
             if (hits.length > 0) {
                 let intersect = hits[0];
                 let size = parseFloat(document.getElementById('tool-size').value);
@@ -757,13 +769,10 @@ function init3DEnvironment() {
                 markerGroup.add(marker);
                 sculptMarkers.push(marker);
             }
-            return; // Prevent the regular "part selection" logic from firing
+            return; // Prevent normal part selection
         }
         
-        // REGULAR SELECTION LOGIC
-        let validMeshes = selectableParts;
-        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
-        
+        // NORMAL PART SELECTION
         const hits = raycaster.intersectObjects(validMeshes, true);
         if (hits.length > 0) selectPart(hits[0].object);
     });
@@ -771,7 +780,7 @@ function init3DEnvironment() {
     animate();
 }
 
-// 🚀 SCULPTING TOOL CONTROLS
+// 🚀 SCULPTING LOGIC
 window.setSculptTool = (tool, btn) => {
     currentSculptTool = tool;
     document.querySelectorAll('#sculpting-section .mat-btn').forEach(b => b.classList.remove('selected'));
@@ -779,10 +788,10 @@ window.setSculptTool = (tool, btn) => {
     
     if (tool === 'none') {
         document.getElementById('sculpt-controls').style.display = 'none';
-        document.getElementById('cad-sliders').style.display = 'block'; // Show normal sliders
+        document.getElementById('cad-sliders').style.display = 'block'; 
     } else {
         document.getElementById('sculpt-controls').style.display = 'block';
-        document.getElementById('cad-sliders').style.display = 'none'; // Hide normal sliders while cutting
+        document.getElementById('cad-sliders').style.display = 'none'; 
         
         if(!activePart) {
             showToast("Select a part (Sole or Upper) first to sculpt it.");
@@ -796,46 +805,48 @@ window.executeCarve = () => {
         showToast("Click the 3D model to place red cutting markers first.");
         return;
     }
-    
-    if (!window.CSG) {
-        showToast("CSG Mathematics Engine loading... Please try again in 2 seconds.");
-        return;
-    }
 
     showToast("Processing Boolean Cut... Calculating Geometry.");
     
     // Slight timeout allows the Toast UI to render before the heavy math locks the browser
     setTimeout(() => {
         try {
-            activePart.updateMatrixWorld(true);
-            
-            // 1. Convert Target to CSG Math
-            let resultCSG = CSG.fromMesh(activePart);
-            
-            // 2. Subtract every marker individually
-            sculptMarkers.forEach(marker => {
-                marker.updateMatrixWorld(true);
-                let toolCSG = CSG.fromMesh(marker);
-                resultCSG = resultCSG.subtract(toolCSG);
+            // 🚀 THE FIX: Target the ENTIRE PARENT MODULE to cut through all sub-meshes at once!
+            let targetMod = activePart;
+            if(activePart.userData.parentModule) targetMod = activePart.userData.parentModule;
+
+            // Loop through EVERY mesh in the sole and cut it
+            targetMod.traverse(mesh => {
+                if (mesh.isMesh) {
+                    mesh.updateMatrixWorld(true);
+                    let resultCSG = CSG.fromMesh(mesh);
+                    let modified = false;
+                    
+                    sculptMarkers.forEach(marker => {
+                        marker.updateMatrixWorld(true);
+                        let toolCSG = CSG.fromMesh(marker);
+                        resultCSG = resultCSG.subtract(toolCSG);
+                        modified = true;
+                    });
+                    
+                    if (modified) {
+                        let newMesh = CSG.toMesh(resultCSG, mesh.matrixWorld, mesh.material);
+                        mesh.geometry.dispose(); 
+                        mesh.geometry = newMesh.geometry;
+                    }
+                }
             });
             
-            // 3. Convert back to Mesh
-            let newMesh = CSG.toMesh(resultCSG, activePart.matrixWorld, activePart.material);
-            
-            // 4. Clean Memory and Apply Geometry
-            activePart.geometry.dispose(); 
-            activePart.geometry = newMesh.geometry;
-            
-            // 5. Hard Reset Scale (Because CSG bakes the current scale permanently into the points)
-            activePart.scale.set(1,1,1);
+            // Hard Reset Scale (Because CSG bakes the current scale permanently into the points)
             if(activePart.userData.parentModule) {
                 activePart.userData.parentModule.scale.set(1,1,1);
                 activePart.userData.parentModule.userData.baseScale.set(1,1,1);
             }
+            activePart.scale.set(1,1,1);
             activePart.userData.baseScale.set(1,1,1);
             updateSliderText();
             
-            // 6. Delete the visual red markers
+            // Delete the visual red markers
             sculptMarkers.forEach(m => markerGroup.remove(m));
             sculptMarkers = [];
             
@@ -852,7 +863,6 @@ window.exportCAD = () => {
     showToast("Packaging 3D Model...");
     const exporter = new THREE.GLTFExporter();
     
-    // Export the entire Shoe Group
     exporter.parse(shoe, function (gltf) {
         const blob = new Blob([gltf], { type: 'application/octet-stream' });
         const url = URL.createObjectURL(blob);
@@ -866,7 +876,6 @@ window.exportCAD = () => {
         showToast("Download Complete!");
     }, { binary: true });
 };
-
 
 function selectPart(target) {
     if(activePart) activePart.material.emissive.setHex(0x000000);
@@ -883,8 +892,7 @@ function selectPart(target) {
     
     if(currentMode === 'advanced' || currentMode === 'designer') {
         
-        // Only show CAD sliders if we aren't currently sculpting
-        if(currentSculptTool === 'none') {
+        if (currentSculptTool === 'none') {
             document.getElementById('cad-sliders').style.display = 'block';
         }
         
@@ -935,7 +943,7 @@ function designerStep(direction) {
         document.getElementById('ds-next').innerText = "Next Phase";
         document.getElementById('ds-upper-tools').style.display = 'none';
         
-        if(currentSculptTool === 'none') document.getElementById('cad-sliders').style.display = 'block'; 
+        if (currentSculptTool === 'none') document.getElementById('cad-sliders').style.display = 'block'; 
         
         camera.position.set(-1.5, 2, 10); 
         controls.target.set(-1.5, 0, 0);
@@ -945,8 +953,7 @@ function designerStep(direction) {
         
         if (shoeModules.sole) {
             shoeModules.sole.visible = true;
-            if (shoeModules.sole.userData.targetY === undefined) shoeModules.sole.userData.targetY = shoeModules.sole.position.y;
-            shoeModules.sole.position.y = shoeModules.sole.userData.targetY + dropOffset; 
+            shoeModules.sole.position.y = shoeModules.sole.userData.basePos.y + dropOffset; 
             let first = null; shoeModules.sole.traverse(n => {if(n.isMesh && !first) first = n;});
             if(first) selectPart(first);
         }
@@ -961,7 +968,7 @@ function designerStep(direction) {
         document.getElementById('ds-next').innerText = "Next Phase";
         document.getElementById('ds-upper-tools').style.display = 'block'; 
         
-        if(currentSculptTool === 'none') document.getElementById('cad-sliders').style.display = 'block'; 
+        if (currentSculptTool === 'none') document.getElementById('cad-sliders').style.display = 'block'; 
         
         camera.position.set(8, 6, 8); 
         controls.target.set(-1.5, 1, 0);
