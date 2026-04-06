@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Footlabs | Modular Engine</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@400;700&family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     
     <style>
-        body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Helvetica Neue', 'Roboto', sans-serif; color: #111; }
+        body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Roboto', sans-serif; color: #111; }
         
         #error-log { display: none; position: fixed; top: 0; left: 0; right: 0; background: #c92a2a; color: white; padding: 15px 30px; z-index: 9999; font-family: 'Share Tech Mono', monospace; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-bottom: 4px solid #861616;}
         
@@ -491,26 +491,27 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // 🧠 EXACT WORKING ALIGNMENT CODE FROM YESTERDAY
             if (!isMonolithic) {
-                if (category === 'upper' || category === 'laces') rawGroup.rotation.x = -Math.PI / 2;
+                // ✅ 1. APPLY THE EXACT SAME ROTATION TO EVERY SINGLE PIECE!
+                // This forces BOTH the Sole and the Upper to lay perfectly horizontal on the floor. No crossing!
+                rawGroup.rotation.x = -Math.PI / 2; 
+                
                 rawGroup.updateMatrixWorld(true);
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
-                box.getCenter(center);
+                if (!box.isEmpty() && isFinite(box.max.y)) box.getCenter(center);
+                
+                // ✅ 2. Center the pieces perfectly at 0,0,0 so they don't float away from each other
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
+                
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
-                
-                // 1. ADDED: Initializing the scale to prevent slider crashes
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
                 
-                // 2. ADDED: Spin the wrapper so it aligns with the sole perfectly
-                if (category === 'upper' || category === 'laces') {
-                    wrapper.rotation.y = -Math.PI / 2; 
-                }
+                // ✅ 3. Spin ALL pieces together so they face the camera perfectly
+                wrapper.rotation.y = -Math.PI / 2;
                 
                 wrapper.add(rawGroup);
                 shoeModules[category] = wrapper;
@@ -528,9 +529,8 @@ function init3DEnvironment() {
             targetGroup.traverse(node => {
                 if(node.isMesh) {
                     node.castShadow = true; node.receiveShadow = true;
-                    node.material = new THREE.MeshStandardMaterial({
-                        color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
-                    });
+                    let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
+                    node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
                     node.userData.baseScale = node.scale.clone();
                     node.userData.parentModule = targetGroup; 
                     
@@ -573,7 +573,7 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // 🧠 EXACT STACKING MATH FROM YOUR CODE YESTERDAY
+    // ✅ 4. YOUR PERFECT STACKING MATH (WITH OVERLAP TO PUSH THE UPPER DOWN)
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
         
@@ -588,7 +588,9 @@ function init3DEnvironment() {
         let soleHeight = soleBox.max.y - soleBox.min.y;
         let upperHeight = upperBox.max.y - upperBox.min.y;
         
-        let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.05; 
+        // Push the upper down into the sole slightly so it doesn't float!
+        let overlap = 0.05; 
+        let stackY = (soleHeight / 2) + (upperHeight / 2) - overlap; 
         
         shoeModules.upper.userData.targetY = stackY;
         
@@ -597,7 +599,7 @@ function init3DEnvironment() {
             rawLaces.updateMatrixWorld(true);
             let lacesBox = new THREE.Box3().setFromObject(rawLaces);
             let lacesHeight = lacesBox.max.y - lacesBox.min.y;
-            shoeModules.laces.userData.targetY = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
+            shoeModules.laces.userData.targetY = stackY + (upperHeight / 2) + (lacesHeight / 2) - overlap;
         }
     };
 
@@ -605,7 +607,9 @@ function init3DEnvironment() {
         if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
             window.updateStackTargets();
             shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
-            if(shoeModules.laces) shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
+            if(shoeModules.laces && shoeModules.laces.userData.targetY !== undefined) {
+                shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
+            }
         }
 
         const combinedBox = new THREE.Box3().setFromObject(shoe);
@@ -647,6 +651,9 @@ function init3DEnvironment() {
             if(currentMode === 'designer') {
                 showToast("Studio locked to Auto-Snapping Assembly.");
                 designerStep(0); 
+            } else {
+                document.getElementById('instruction-text').style.display = 'block';
+                showToast(currentMode.toUpperCase() + " Mode Active.");
             }
         }, 500);
     }
@@ -659,7 +666,7 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule && p.userData.parentModule.visible !== false);
         
         const hits = raycaster.intersectObjects(validMeshes, true);
 
@@ -683,7 +690,7 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule && p.userData.parentModule.visible !== false);
         
         const hits = raycaster.intersectObjects(validMeshes, true);
         
@@ -714,14 +721,13 @@ function selectPart(target) {
             targetMod = activePart.userData.parentModule;
         }
         
-        // Ensure scale exists so it doesn't crash!
         if (!targetMod.userData.baseScale) {
             targetMod.userData.baseScale = targetMod.scale.clone();
         }
         
-        // Dynamically match axes based on the wrapper spin
+        // Slider mapping safely linked to visual axes
         let mapX = 'x', mapZ = 'z';
-        if (currentMode === 'designer' && targetMod.userData.category !== 'sole') {
+        if (currentMode === 'designer') {
              mapX = 'z'; mapZ = 'x'; 
         }
 
