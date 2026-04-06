@@ -201,7 +201,7 @@
                     </div>
                     <div class="mode-card" onclick="launchStudio('designer')">
                         <h3>MODULAR BUILD</h3>
-                        <p>Guided assembly using your custom CAD modules.</p>
+                        <p>Guided assembly using your custom CAD models.</p>
                     </div>
                 </div>
             </div>
@@ -365,7 +365,6 @@ let basePrice = 120, partMaterials = {};
 let proceduralTextures = {}; 
 let designerCurrentStep = 1;
 
-// 🧠 YOUR BLUEPRINT: Array of meshes instead of separate GLTF files
 let shoeModules = { sole: [], upper: [], laces: [] };
 
 function showToast(message) {
@@ -475,46 +474,56 @@ function init3DEnvironment() {
     scene.add(floor);
 
     shoe = new THREE.Group();
-    // 🧠 YOUR BLUEPRINT: ONE GLOBAL ROTATION
-    shoe.rotation.x = -Math.PI / 2;
+    // 🧠 LAY IT FLAT: Maps CAD axes so it lies perfectly horizontal on the floor!
+    shoe.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
     scene.add(shoe);
 
     const loader = new THREE.GLTFLoader(manager);
 
-    // 🧠 YOUR BLUEPRINT: Load full_shoe.gltf!
     const loadFullShoe = (filename) => {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // PRESERVE ON-SHAPE ORIGIN - No centering!
-            rawGroup.position.set(0, 0, 0);
-            
+            // PRESERVE NATIVE CAD ORIGIN (0,0,0) - Do NOT run math or recenter!
             shoe.add(rawGroup);
 
-            // Categorize by name
+            let soleGroup = new THREE.Group(); soleGroup.userData.category = 'sole'; soleGroup.userData.baseScale = new THREE.Vector3(1,1,1);
+            let upperGroup = new THREE.Group(); upperGroup.userData.category = 'upper'; upperGroup.userData.baseScale = new THREE.Vector3(1,1,1);
+            let lacesGroup = new THREE.Group(); lacesGroup.userData.category = 'laces'; lacesGroup.userData.baseScale = new THREE.Vector3(1,1,1);
+            
+            shoe.add(soleGroup);
+            shoe.add(upperGroup);
+            shoe.add(lacesGroup);
+
+            let nodesToMove = [];
             rawGroup.traverse(node => {
-                if(node.isMesh) {
-                    node.castShadow = true; node.receiveShadow = true;
-                    let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
-                    node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
-                    node.userData.baseScale = node.scale.clone();
-                    
-                    let n = node.name.toUpperCase();
-                    if(n.includes('SOLE') || n.includes('BOTTOM')) {
-                        node.userData.category = 'sole';
-                        shoeModules.sole.push(node);
-                    }
-                    else if(n.includes('LACE') || n.includes('AGLET')) {
-                        node.userData.category = 'laces';
-                        shoeModules.laces.push(node);
-                    }
-                    else {
-                        node.userData.category = 'upper';
-                        shoeModules.upper.push(node);
-                    }
-                    
-                    selectableParts.push(node); 
+                if(node.isMesh) nodesToMove.push(node);
+            });
+
+            nodesToMove.forEach(node => {
+                node.castShadow = true; node.receiveShadow = true;
+                let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
+                node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
+                node.userData.baseScale = node.scale.clone();
+                
+                let n = node.name.toUpperCase();
+                let targetGrp;
+                if(n.includes('SOLE') || n.includes('BOTTOM')) {
+                    targetGrp = soleGroup; node.userData.category = 'sole';
+                    shoeModules.sole.push(node);
                 }
+                else if(n.includes('LACE') || n.includes('AGLET')) {
+                    targetGrp = lacesGroup; node.userData.category = 'laces';
+                    shoeModules.laces.push(node);
+                }
+                else {
+                    targetGrp = upperGroup; node.userData.category = 'upper';
+                    shoeModules.upper.push(node);
+                }
+                
+                targetGrp.add(node);
+                node.userData.parentModule = targetGrp;
+                selectableParts.push(node);
             });
 
             partMaterials['full'] = 0; 
@@ -528,7 +537,7 @@ function init3DEnvironment() {
     if (currentMode === 'template' || currentMode === 'advanced') {
         loadFullShoe('updatedshoe.glb'); 
     } else if (currentMode === 'designer') {
-        // 🚀 THE MAGIC: We use the full shoe so alignment is permanently perfect.
+        // Loads everything pre-aligned
         loadFullShoe('full_shoe.gltf'); 
     }
 
@@ -546,7 +555,7 @@ function init3DEnvironment() {
             if (maxDim > 0 && maxDim !== Infinity && !isNaN(maxDim)) {
                 const scale = 8 / maxDim;
                 shoe.scale.set(scale, scale, scale);
-                // Center the entire perfectly-aligned assembly as one unit
+                // Centers the globally rotated object in the middle of the screen
                 shoe.position.sub(center.multiplyScalar(scale));
                 shoe.position.y += 0.5;
                 shoe.position.x -= 1.5; 
@@ -554,9 +563,8 @@ function init3DEnvironment() {
             }
         }
 
-        // 🧠 YOUR BLUEPRINT: State Hiding/Showing instead of loading separate files!
         if (currentMode === 'designer') {
-            // Step 1: Hide Upper and Laces
+            // STEP 1: Hide Upper and Laces immediately without messing up their math
             shoeModules.upper.forEach(p => p.visible = false);
             shoeModules.laces.forEach(p => p.visible = false);
         }
@@ -566,7 +574,7 @@ function init3DEnvironment() {
         setTimeout(() => { 
             loadScreen.style.display = 'none'; 
             if(currentMode === 'designer') {
-                showToast("Studio locked to Native Assembly.");
+                showToast("Studio locked to Native CAD Assembly.");
                 designerStep(0); 
             } else {
                 document.getElementById('instruction-text').style.display = 'block';
@@ -629,16 +637,23 @@ function selectPart(target) {
     if(currentMode === 'advanced' || currentMode === 'designer') {
         document.getElementById('cad-sliders').style.display = 'block';
         
-        // 🧠 YOUR BLUEPRINT: Safety check
-        if (!activePart || !activePart.scale) return; 
-        if (!activePart.userData.baseScale) {
-            activePart.userData.baseScale = activePart.scale.clone();
+        let targetMod = activePart;
+        
+        // Safety check to stop sliders from crashing
+        if (!targetMod || !targetMod.scale) return; 
+        if (!targetMod.userData.baseScale) {
+            targetMod.userData.baseScale = targetMod.scale.clone();
         }
 
-        // CAD native orientation mapped to sliders
-        document.getElementById('scale-x').value = activePart.scale.x / activePart.userData.baseScale.x;
-        document.getElementById('scale-y').value = activePart.scale.y / activePart.userData.baseScale.y;
-        document.getElementById('scale-z').value = activePart.scale.z / activePart.userData.baseScale.z;
+        // 🧠 Mapped sliders to the correctly rotated axes
+        // Width (UI X) scales CAD Width (Z)
+        // Thickness (UI Y) scales CAD Thickness (X)
+        // Length (UI Z) scales CAD Length (Y)
+        let mapX = 'z', mapY = 'x', mapZ = 'y';
+
+        document.getElementById('scale-x').value = targetMod.scale[mapX] / targetMod.userData.baseScale[mapX];
+        document.getElementById('scale-y').value = targetMod.scale[mapY] / targetMod.userData.baseScale[mapY];
+        document.getElementById('scale-z').value = targetMod.scale[mapZ] / targetMod.userData.baseScale[mapZ];
         
         updateSliderText();
         runSafetyEngine(document.getElementById('scale-y').value, 'y');
@@ -672,6 +687,11 @@ function designerStep(direction) {
         controls.update();
 
         showToast("Loading Modular Sole...");
+        
+        shoeModules.sole.forEach(p => p.visible = true);
+        shoeModules.upper.forEach(p => p.visible = false);
+        shoeModules.laces.forEach(p => p.visible = false);
+
         if(shoeModules.sole.length > 0) selectPart(shoeModules.sole[0]);
     } 
     else if (designerCurrentStep === 2) {
@@ -689,8 +709,9 @@ function designerStep(direction) {
         
         showToast("Loading Modular Upper...");
 
-        // 🧠 UNHIDE UPPER: Alignment is PERFECT automatically!
+        // 🧠 NATIVELY PERFECT: We just make the upper visible!
         shoeModules.upper.forEach(p => { p.visible = true; });
+        
         if(shoeModules.upper.length > 0) selectPart(shoeModules.upper[0]);
     }
     else if (designerCurrentStep === 3) {
@@ -708,9 +729,11 @@ function designerStep(direction) {
         
         showToast("Loading Accessories...");
 
-        // UNHIDE LACES
+        // NATIVELY PERFECT
         shoeModules.laces.forEach(p => { p.visible = true; });
+        
         if(shoeModules.laces.length > 0) selectPart(shoeModules.laces[0]);
+        else if(shoeModules.upper.length > 0) selectPart(shoeModules.upper[0]);
     }
     else if (designerCurrentStep > 3) {
         showCheckout();
@@ -723,17 +746,16 @@ window.simulateHighTop = (type, btn) => {
     document.querySelectorAll('#ds-upper-tools .mat-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     
-    // Apply uniform scale to entire Upper group without moving it!
     if(type === 'high') {
         shoeModules.upper.forEach(part => {
             if (!part.userData.baseScale) part.userData.baseScale = part.scale.clone();
-            part.scale.z = part.userData.baseScale.z * 1.5; 
+            part.scale.x = part.userData.baseScale.x * 1.5; 
         });
         showToast("Upper chassis extended to High Top profile.");
     } else {
         shoeModules.upper.forEach(part => {
             if (!part.userData.baseScale) part.userData.baseScale = part.scale.clone();
-            part.scale.z = part.userData.baseScale.z; 
+            part.scale.x = part.userData.baseScale.x; 
         });
         showToast("Upper chassis restored to Low Top profile.");
     }
@@ -744,29 +766,22 @@ window.applyScale = (axis, value) => {
     const newScale = parseFloat(value);
     if (isNaN(newScale)) return;
     
-    if (!activePart.userData.baseScale) activePart.userData.baseScale = activePart.scale.clone();
-    activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
+    const category = activePart.userData.category;
     
-    updateSliderText();
+    let targetAxis = axis;
+    if (axis === 'x') targetAxis = 'z'; 
+    else if (axis === 'y') targetAxis = 'x';
+    else if (axis === 'z') targetAxis = 'y';
     
-    // 🧠 BULLETPROOF OFFSET MATH
-    // Because we are using full_shoe, if you thicken the Sole, you MUST push the Upper away 
-    // so it doesn't get swallowed. We use Bounding Boxes just for the offset difference!
-    if (activePart.userData.category === 'sole' && axis === 'z') { 
-        showToast("Chassis realigning to sync with new sole volume.");
-        
-        let delta = (newScale - 1) * 0.4; // 0.4 is average CAD origin offset. 
-        
-        shoeModules.upper.forEach(node => {
-            if (!node.userData.basePos) node.userData.basePos = node.position.clone();
-            node.position.z = node.userData.basePos.z + delta;
-        });
-        shoeModules.laces.forEach(node => {
-            if (!node.userData.basePos) node.userData.basePos = node.position.clone();
-            node.position.z = node.userData.basePos.z + delta;
-        });
-    }
+    // Scale pieces safely without crashing
+    selectableParts.forEach(part => {
+        if (part.userData.category === category) {
+            if (!part.userData.baseScale) part.userData.baseScale = part.scale.clone();
+            part.scale[targetAxis] = part.userData.baseScale[targetAxis] * newScale;
+        }
+    });
 
+    updateSliderText();
     runSafetyEngine(newScale, axis);
 };
 
