@@ -110,7 +110,7 @@
         .custom-color-text { background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
-        /* 🚀 ADDED: BOOLEAN SCULPTING UI */
+        /* 🚀 SCULPTING UI */
         #sculpting-section { display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px; }
         
         .slider-group { margin-bottom: 25px; }
@@ -391,7 +391,7 @@ let designerCurrentStep = 1;
 
 let shoeModules = { sole: null, upper: null, laces: null };
 
-// 🚀 INJECTED: SCULPTING VARIABLES
+// 🚀 SCULPTING VARIABLES
 let currentSculptTool = 'none';
 let sculptMarkers = [];
 let markerGroup = new THREE.Group();
@@ -427,11 +427,11 @@ function launchStudio(mode) {
     
     document.getElementById('mode-badge').innerText = mode.toUpperCase() + (mode==='designer'?" BUILD":" MODE");
     
-    // 🚀 INJECTED: Show Sculpting Panel for CAD modes
+    // Show Sculpting Panel for CAD modes
     if(mode === 'designer' || mode === 'advanced') {
         document.getElementById('sculpting-section').style.display = 'block';
     }
-
+    
     if(mode === 'designer') {
         document.getElementById('instruction-text').style.display = 'none';
         document.getElementById('active-part-display').style.display = 'none';
@@ -507,10 +507,11 @@ function init3DEnvironment() {
     floor.receiveShadow = true;
     scene.add(floor);
 
+    // 🔒 100% EXACT ALIGNMENT MATCH
     shoe = new THREE.Group();
     scene.add(shoe);
     
-    // 🚀 INJECTED: Scene Marker Group
+    // 🚀 INJECTED: Scene Marker Group for cuts
     scene.add(markerGroup);
 
     const loader = new THREE.GLTFLoader(manager);
@@ -528,7 +529,7 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // 🔒 100% EXACT ALIGNMENT CODE FROM YOUR LAST MESSAGE
+            // 🔒 100% YOUR EXACT ALIGNMENT CODE 
             if (!isMonolithic) {
                 if (category === 'upper' || category === 'laces') rawGroup.rotation.x = -Math.PI / 2;
                 rawGroup.updateMatrixWorld(true);
@@ -541,10 +542,8 @@ function init3DEnvironment() {
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
                 
-                // 1. ADDED: Initializing the scale to prevent slider crashes
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
                 
-                // 2. ADDED: Spin the wrapper so it aligns with the sole perfectly
                 if (category === 'upper' || category === 'laces') {
                     wrapper.rotation.y = -Math.PI / 2; 
                 }
@@ -610,7 +609,7 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // 🔒 EXACT STACKING MATH FROM YOUR CODE
+    // 🔒 100% EXACT STACKING MATH FROM YOUR CODE
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
         
@@ -625,7 +624,7 @@ function init3DEnvironment() {
         let soleHeight = soleBox.max.y - soleBox.min.y;
         let upperHeight = upperBox.max.y - upperBox.min.y;
         
-        let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.05; 
+        let stackY = (soleHeight / 2) + (upperHeight / 2) +0.0001; 
         
         shoeModules.upper.userData.targetY = stackY;
         
@@ -700,7 +699,7 @@ function init3DEnvironment() {
         
         const hits = raycaster.intersectObjects(validMeshes, true);
 
-        // 🚀 INJECTED: Custom cursor block during sculpting
+        // 🚀 INJECTED: Disables Hover selection while you are actively trying to sculpt
         if (currentSculptTool === 'none') {
             if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
             
@@ -727,7 +726,7 @@ function init3DEnvironment() {
         let validMeshes = selectableParts;
         if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
         
-        // 🚀 INJECTED: Raycaster Math for placing 90-degree markers
+        // 🚀 INJECTED: The Math logic to place the drill bit exactly 90 degrees to the surface
         if (currentSculptTool !== 'none' && activePart) {
             
             const markerHits = raycaster.intersectObjects(markerGroup.children, true);
@@ -738,33 +737,39 @@ function init3DEnvironment() {
                 return; 
             }
 
-            const hits = raycaster.intersectObject(activePart, true);
+            let targetGroupToClick = activePart;
+            if(activePart.userData.parentModule) targetGroupToClick = activePart.userData.parentModule;
+            
+            const hits = raycaster.intersectObject(targetGroupToClick, true);
             if (hits.length > 0) {
                 let intersect = hits[0];
                 let size = parseFloat(document.getElementById('tool-size').value);
                 
                 let geo;
-                // Cut deeper
-                if (currentSculptTool === 'cylinder') geo = new THREE.CylinderGeometry(size, size, 10, 32);
-                else geo = new THREE.BoxGeometry(size * 2, 10, size * 2); 
+                // Length is locked to 20 so it cuts all the way through
+                if (currentSculptTool === 'cylinder') {
+                    geo = new THREE.CylinderGeometry(size, size, 20, 32);
+                } else {
+                    geo = new THREE.BoxGeometry(size * 2, 20, size * 2); 
+                }
                 
                 let mat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.5, depthTest: false });
                 let marker = new THREE.Mesh(geo, mat);
                 
+                // Snap to point
                 marker.position.copy(intersect.point);
                 
-                // 🚀 GET TRUE 90-DEGREE TANGENT (WORLD NORMAL)
+                // 🚀 THE FIX: This grabs the absolute 90-degree normal, factoring in your exact alignment!
                 let normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
                 let worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
                 
-                // Align cylinder/box to point directly into the shoe
+                // Plunge the Y-axis of the cylinder straight into the face
                 marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), worldNormal);
-                if (currentSculptTool === 'cylinder') marker.rotateX(Math.PI / 2);
                 
                 markerGroup.add(marker);
                 sculptMarkers.push(marker);
             }
-            return; 
+            return; // Stops selectPart from firing
         }
 
         const hits = raycaster.intersectObjects(validMeshes, true);
@@ -773,107 +778,6 @@ function init3DEnvironment() {
 
     animate();
 }
-
-// 🚀 INJECTED: SCULPTING LOGIC
-window.setSculptTool = (tool, btn) => {
-    currentSculptTool = tool;
-    document.querySelectorAll('#sculpting-section .mat-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    
-    if (tool === 'none') {
-        document.getElementById('sculpt-controls').style.display = 'none';
-        document.getElementById('cad-sliders').style.display = 'block'; 
-    } else {
-        document.getElementById('sculpt-controls').style.display = 'block';
-        document.getElementById('cad-sliders').style.display = 'none'; 
-        
-        if(!activePart) {
-            showToast("Select a part (Sole or Upper) first to sculpt it.");
-            setSculptTool('none', document.querySelector('#sculpting-section .mat-btn'));
-        }
-    }
-};
-
-window.executeCarve = () => {
-    if (sculptMarkers.length === 0) {
-        showToast("Click the 3D model to place red cutting markers first.");
-        return;
-    }
-    
-    // 🚀 THE FIX: Correctly call the CSG module imported in the <head>
-    let CSG_LIB = null;
-    if (window.CSG) {
-        CSG_LIB = window.CSG;
-    } else if (window.THREE_CSG_TS) {
-        CSG_LIB = window.THREE_CSG_TS.CSG;
-    }
-    
-    if (!CSG_LIB) {
-        showToast("CSG Mathematics Engine loading... Please try again.");
-        return;
-    }
-
-    showToast("Processing Boolean Cut... Calculating Geometry.");
-    
-    setTimeout(() => {
-        try {
-            activePart.updateMatrixWorld(true);
-            let resultCSG = CSG_LIB.fromMesh(activePart);
-            let modified = false;
-            
-            sculptMarkers.forEach(marker => {
-                marker.updateMatrixWorld(true);
-                let toolCSG = CSG_LIB.fromMesh(marker);
-                resultCSG = resultCSG.subtract(toolCSG);
-                modified = true;
-            });
-            
-            if (modified) {
-                let newMesh = CSG_LIB.toMesh(resultCSG, activePart.matrixWorld, activePart.material);
-                activePart.geometry.dispose(); 
-                activePart.geometry = newMesh.geometry;
-            }
-            
-            // Hard Reset Scale
-            if(activePart.userData.parentModule) {
-                activePart.userData.parentModule.scale.set(1,1,1);
-                activePart.userData.parentModule.userData.baseScale.set(1,1,1);
-            }
-            activePart.scale.set(1,1,1);
-            activePart.userData.baseScale.set(1,1,1);
-            updateSliderText();
-            
-            sculptMarkers.forEach(m => markerGroup.remove(m));
-            sculptMarkers = [];
-            
-            showToast("Carving Successful!");
-        } catch(e) {
-            console.error(e);
-            showToast("Error: Geometry Too Complex. Try fewer cuts.");
-        }
-    }, 100);
-};
-
-// EXPORT 3D FILE
-window.exportCAD = () => {
-    showToast("Packaging 3D Model...");
-    const exporter = new THREE.GLTFExporter();
-    
-    exporter.parse(shoe, function (gltf) {
-        const blob = new Blob([gltf], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.style.display = 'none';
-        link.href = url;
-        link.download = 'Footlabs_Custom_Carved_Shoe.glb';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast("Download Complete!");
-    }, { binary: true });
-};
-
-// --- END INJECTED LOGIC ---
 
 function selectPart(target) {
     if(activePart) activePart.material.emissive.setHex(0x000000);
@@ -890,8 +794,7 @@ function selectPart(target) {
     
     if(currentMode === 'advanced' || currentMode === 'designer') {
         
-        // Only show CAD sliders if we aren't currently sculpting
-        if(currentSculptTool === 'none') {
+        if (currentSculptTool === 'none') {
             document.getElementById('cad-sliders').style.display = 'block';
         }
         
@@ -905,7 +808,6 @@ function selectPart(target) {
             targetMod.userData.baseScale = targetMod.scale.clone();
         }
         
-        // Dynamically match axes based on the wrapper spin
         let mapX = 'x', mapZ = 'z';
         if (currentMode === 'designer' && targetMod.userData.category !== 'sole') {
              mapX = 'z'; mapZ = 'x'; 
@@ -913,7 +815,7 @@ function selectPart(target) {
 
         document.getElementById('scale-x').value = targetMod.scale[mapX] / targetMod.userData.baseScale[mapX];
         
-        // 🚀 FIXED TYPO: Now correctly reads innerText
+        // 🚀 FIXED: Removed the `.getElementById` typo that crashed the slider
         document.getElementById('scale-y').value = targetMod.scale.y / targetMod.userData.baseScale.y;
         document.getElementById('scale-z').value = targetMod.scale[mapZ] / targetMod.userData.baseScale[mapZ];
         
@@ -1080,7 +982,6 @@ window.applyScale = (axis, value) => {
     runSafetyEngine(newScale, axis);
 };
 
-// 🚀 FIXED: InnerText typo resolved
 function updateSliderText() {
     document.getElementById('val-x').innerText = document.getElementById('scale-x').value;
     document.getElementById('val-y').innerText = document.getElementById('scale-y').value;
@@ -1231,6 +1132,111 @@ window.addEventListener('resize', () => {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// 🚀 INJECTED LOGIC: SCULPTING TOOL, CUTTING ENGINE, & EXPORT
+window.setSculptTool = (tool, btn) => {
+    currentSculptTool = tool;
+    document.querySelectorAll('#sculpting-section .mat-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    
+    if (tool === 'none') {
+        document.getElementById('sculpt-controls').style.display = 'none';
+        document.getElementById('cad-sliders').style.display = 'block'; 
+    } else {
+        document.getElementById('sculpt-controls').style.display = 'block';
+        document.getElementById('cad-sliders').style.display = 'none'; 
+        
+        if(!activePart) {
+            showToast("Select a part (Sole or Upper) first to sculpt it.");
+            setSculptTool('none', document.querySelector('#sculpting-section .mat-btn'));
+        }
+    }
+};
+
+window.executeCarve = () => {
+    if (sculptMarkers.length === 0) {
+        showToast("Click the 3D model to place red cutting markers first.");
+        return;
+    }
+    
+    // 🚀 THE FIX: This safely grabs the library once it's loaded by the module script above
+    const CSG_LIB = window.CSG;
+    
+    if (!CSG_LIB) {
+        showToast("CSG Mathematics Engine loading... Please wait 2 seconds and try again.");
+        return;
+    }
+
+    showToast("Processing Boolean Cut... Calculating Geometry.");
+    
+    setTimeout(() => {
+        try {
+            let targetMod = activePart;
+            if(activePart.userData.parentModule) targetMod = activePart.userData.parentModule;
+
+            targetMod.traverse(mesh => {
+                if (mesh.isMesh) {
+                    mesh.updateMatrixWorld(true);
+                    let bspA = CSG_LIB.fromMesh(mesh);
+                    let modified = false;
+                    
+                    sculptMarkers.forEach(marker => {
+                        marker.updateMatrixWorld(true);
+                        let bspB = CSG_LIB.fromMesh(marker);
+                        bspA = bspA.subtract(bspB);
+                        modified = true;
+                    });
+                    
+                    if (modified) {
+                        let newMesh = CSG_LIB.toMesh(bspA, mesh.matrixWorld, mesh.material);
+                        
+                        // 🚀 THE FIX: Applying the Inverse Matrix stops the shoe from shifting
+                        let inverseMatrix = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+                        newMesh.geometry.applyMatrix4(inverseMatrix);
+                        
+                        mesh.geometry.dispose(); 
+                        mesh.geometry = newMesh.geometry;
+                    }
+                }
+            });
+            
+            // Keeps sliders safe after cut
+            if(activePart.userData.parentModule) {
+                activePart.userData.parentModule.scale.set(1,1,1);
+                activePart.userData.parentModule.userData.baseScale.set(1,1,1);
+            }
+            activePart.scale.set(1,1,1);
+            activePart.userData.baseScale.set(1,1,1);
+            updateSliderText();
+            
+            sculptMarkers.forEach(m => markerGroup.remove(m));
+            sculptMarkers = [];
+            
+            showToast("Carving Successful!");
+        } catch(e) {
+            console.error(e);
+            showToast("Error: Geometry Too Complex. Try fewer cuts.");
+        }
+    }, 100);
+};
+
+window.exportCAD = () => {
+    showToast("Packaging 3D Model...");
+    const exporter = new THREE.GLTFExporter();
+    
+    exporter.parse(shoe, function (gltf) {
+        const blob = new Blob([gltf], { type: 'application/octet-stream' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.style.display = 'none';
+        link.href = url;
+        link.download = 'Footlabs_Custom_Carved_Shoe.glb';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast("Download Complete!");
+    }, { binary: true });
+};
 </script>
 </body>
 </html>
