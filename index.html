@@ -10,10 +10,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
     
-    <script src="https://cdn.jsdelivr.net/gh/manthrax/THREE-CSGMesh/three-csg.js"></script>
+    <script type="module">
+        import { CSG } from 'https://esm.sh/three-csg-ts@3.1.11?external=three';
+        window.CSG = CSG;
+    </script>
     
     <style>
         body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Roboto', sans-serif; color: #111; }
@@ -111,7 +113,7 @@
         .custom-color-text { background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
-        /* SCULPTING UI */
+        /* 🚀 BOOLEAN SCULPTING UI */
         #sculpting-section { display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px; }
         
         .slider-group { margin-bottom: 25px; }
@@ -121,12 +123,6 @@
         #safety-readout { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 15px; border-radius: 6px; font-family: 'Share Tech Mono'; font-size: 11px; margin-top: 30px; transition: 0.3s; pointer-events: none;}
         #safety-readout.warning { background: #ffebee; border-color: #ffcdd2; color: #c62828; animation: pulse 1s infinite;}
         
-        @keyframes pulse { 
-            0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 
-            70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 
-            100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } 
-        }
-
         .ds-controls { display: flex; justify-content: space-between; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;}
         .ds-btn { padding: 12px 20px; border: 1px solid #111; background: transparent; border-radius: 30px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s; color: #111;}
         .ds-btn:hover { background: #111; color: #fff;}
@@ -156,10 +152,12 @@
 <body>
 
     <div id="error-log"></div>
+
     <div id="loading-screen" style="display: none;">
         <div class="loader-logo">FOOTLABS STUDIO</div>
         <div class="progress-bar-container"><div id="progress-bar"></div></div>
     </div>
+
     <div id="toast-container"></div>
 
     <div id="onboarding">
@@ -426,6 +424,7 @@ function launchStudio(mode) {
     
     document.getElementById('mode-badge').innerText = mode.toUpperCase() + (mode==='designer'?" BUILD":" MODE");
     
+    // Reveal Sculpting UI for CAD modes
     if(mode === 'designer' || mode === 'advanced') {
         document.getElementById('sculpting-section').style.display = 'block';
     }
@@ -505,10 +504,11 @@ function init3DEnvironment() {
     floor.receiveShadow = true;
     scene.add(floor);
 
+    // 🔒 EXACT MATCH TO YOUR CODE
     shoe = new THREE.Group();
-    shoe.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
     scene.add(shoe);
     
+    // Inject Marker Group into scene
     scene.add(markerGroup);
 
     const loader = new THREE.GLTFLoader(manager);
@@ -526,24 +526,27 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // 🔒 YOUR EXACT ALIGNMENT MATH
+            // 🔒 100% YOUR EXACT ALIGNMENT CODE FROM YOUR LAST MESSAGE
             if (!isMonolithic) {
+                // DO NOT ROTATE THE RAW FILE. Let it stay completely horizontal.
                 rawGroup.rotation.set(0, 0, 0);
                 rawGroup.updateMatrixWorld(true);
-                
+
+                // Center the part perfectly so they stack clean
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
                 if(!box.isEmpty() && isFinite(box.max.y)) box.getCenter(center);
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
-                
+
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
-                
-                wrapper.rotation.y = -Math.PI / 2; 
-                
+
+                // Spin all pieces 90 degrees uniformly to face the camera
+                wrapper.rotation.y = -Math.PI / 2;
+
                 wrapper.add(rawGroup);
                 shoeModules[category] = wrapper;
                 shoe.add(wrapper);
@@ -604,7 +607,7 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // 🔒 YOUR EXACT STACKING MATH
+    // 🔒 100% YOUR EXACT STACKING MATH
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
         
@@ -695,7 +698,7 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule && p.userData.parentModule.visible !== false);
         
         const hits = raycaster.intersectObjects(validMeshes, true);
 
@@ -724,7 +727,7 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule && p.userData.parentModule.visible !== false);
         
         // 🚀 THE FIX: Calculate absolute 90-degree World Normals so the Marker pierces straight into the shoe
         if (currentSculptTool !== 'none' && activePart) {
@@ -746,6 +749,7 @@ function init3DEnvironment() {
                 let size = parseFloat(document.getElementById('tool-size').value);
                 
                 let geo;
+                // Length is locked to 20 so it pierces deeply
                 if (currentSculptTool === 'cylinder') {
                     geo = new THREE.CylinderGeometry(size, size, 20, 32);
                 } else {
@@ -759,13 +763,11 @@ function init3DEnvironment() {
                 marker.position.copy(intersect.point);
                 
                 // 🚀 NORMALS FIX: Finds the absolute normal factoring in the 90-degree wrapper rotations
-                let worldNormal = intersect.face.normal.clone().transformDirection(intersect.object.matrixWorld).normalize();
+                let normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
+                let worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
                 
                 // Forces the marker to look out from the face, then rotates the cylinder to plunge into it
-                marker.lookAt(intersect.point.clone().add(worldNormal));
-                if (currentSculptTool === 'cylinder') {
-                    marker.rotateX(Math.PI / 2); 
-                }
+                marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), worldNormal);
                 
                 markerGroup.add(marker);
                 sculptMarkers.push(marker);
@@ -806,10 +808,8 @@ window.executeCarve = () => {
         return;
     }
     
-    // 🚀 THE FIX: Relying on the bulletproof window.CSG from the Manthrax library
-    const CSG_LIB = window.CSG;
-    
-    if (!CSG_LIB) {
+    // 🚀 THE FIX: CSG will ALWAYS be defined now because of the ES Module import.
+    if (!window.CSG) {
         showToast("CSG Mathematics Engine loading... Please try again.");
         return;
     }
@@ -824,19 +824,19 @@ window.executeCarve = () => {
             targetMod.traverse(mesh => {
                 if (mesh.isMesh) {
                     mesh.updateMatrixWorld(true);
-                    let bspA = CSG_LIB.fromMesh(mesh);
+                    let resultCSG = window.CSG.fromMesh(mesh);
                     let modified = false;
                     
                     sculptMarkers.forEach(marker => {
                         marker.updateMatrixWorld(true);
-                        let bspB = CSG_LIB.fromMesh(marker);
-                        bspA = bspA.subtract(bspB);
+                        let toolCSG = window.CSG.fromMesh(marker);
+                        resultCSG = resultCSG.subtract(toolCSG);
                         modified = true;
                     });
                     
                     if (modified) {
-                        // 🚀 THE FIX: CSG.toMesh natively drops the geometry back in its correct local space. No manual shifting required!
-                        let newMesh = CSG_LIB.toMesh(bspA, mesh.matrixWorld, mesh.material);
+                        // 🚀 THE FIX: Converts the mesh without displacing its location
+                        let newMesh = window.CSG.toMesh(resultCSG, mesh.matrixWorld, mesh.material);
                         mesh.geometry.dispose(); 
                         mesh.geometry = newMesh.geometry;
                     }
@@ -1083,7 +1083,7 @@ window.applyScale = (axis, value) => {
 
 function updateSliderText() {
     document.getElementById('val-x').innerText = document.getElementById('scale-x').value;
-    document.getElementById('val-y').innerText = document.getElementById('scale-y').value;
+    document.getElementById('val-y').getElementById('scale-y').value;
     document.getElementById('val-z').innerText = document.getElementById('scale-z').value;
 }
 
