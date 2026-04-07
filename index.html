@@ -110,7 +110,7 @@
         .custom-color-text { background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
-        /* SCULPTING UI */
+        /* 🚀 BOOLEAN SCULPTING UI */
         #sculpting-section { display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px; }
         
         .slider-group { margin-bottom: 25px; }
@@ -120,6 +120,12 @@
         #safety-readout { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 15px; border-radius: 6px; font-family: 'Share Tech Mono'; font-size: 11px; margin-top: 30px; transition: 0.3s; pointer-events: none;}
         #safety-readout.warning { background: #ffebee; border-color: #ffcdd2; color: #c62828; animation: pulse 1s infinite;}
         
+        @keyframes pulse { 
+            0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 
+            70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 
+            100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } 
+        }
+
         .ds-controls { display: flex; justify-content: space-between; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;}
         .ds-btn { padding: 12px 20px; border: 1px solid #111; background: transparent; border-radius: 30px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s; color: #111;}
         .ds-btn:hover { background: #111; color: #fff;}
@@ -499,6 +505,7 @@ function init3DEnvironment() {
     scene.add(floor);
 
     shoe = new THREE.Group();
+    shoe.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
     scene.add(shoe);
     
     scene.add(markerGroup);
@@ -691,7 +698,7 @@ function init3DEnvironment() {
         
         const hits = raycaster.intersectObjects(validMeshes, true);
 
-        // Hover Effect
+        // Hover Effect Only When Not Sculpting
         if (currentSculptTool === 'none') {
             if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
             
@@ -718,7 +725,7 @@ function init3DEnvironment() {
         let validMeshes = selectableParts;
         if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
         
-        // 🚀 THE FIX: Calculate World Normals so the Marker pierces 90-degrees into the shoe
+        // 🚀 THE FIX: Calculate World Normals so the Marker pierces 90-degrees straight into the shoe
         if (currentSculptTool !== 'none' && activePart) {
             
             const markerHits = raycaster.intersectObjects(markerGroup.children, true);
@@ -738,11 +745,11 @@ function init3DEnvironment() {
                 let size = parseFloat(document.getElementById('tool-size').value);
                 
                 let geo;
-                // Length is locked to 10. By setting length along Y for the Box too, we can orient them identically.
+                // Length is locked to 20 so it cuts all the way through
                 if (currentSculptTool === 'cylinder') {
-                    geo = new THREE.CylinderGeometry(size, size, 10, 32);
+                    geo = new THREE.CylinderGeometry(size, size, 20, 32);
                 } else {
-                    geo = new THREE.BoxGeometry(size * 2, 10, size * 2); 
+                    geo = new THREE.BoxGeometry(size * 2, 20, size * 2); 
                 }
                 
                 let mat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.5, depthTest: false });
@@ -750,11 +757,9 @@ function init3DEnvironment() {
                 
                 marker.position.copy(intersect.point);
                 
-                // 🚀 GET TRUE 90-DEGREE TANGENT (WORLD NORMAL)
+                // 🚀 NORMALS FIX: Plunges the cylinder's Y-axis perfectly down into the shoe surface
                 let normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
                 let worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
-                
-                // Plunge the Y-axis (Length) directly into the face
                 marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), worldNormal);
                 
                 markerGroup.add(marker);
@@ -796,8 +801,8 @@ window.executeCarve = () => {
         return;
     }
     
-    // 🚀 THE FIX: CSG Reference Error Solved
-    const CSG_LIB = window.THREE_CSG_TS ? window.THREE_CSG_TS.CSG : window.CSG;
+    // 🚀 THE FIX: Defining the CSG engine correctly so it never crashes!
+    const CSG_LIB = window.THREE_CSG_TS ? window.THREE_CSG_TS.CSG : null;
     
     if (!CSG_LIB) {
         showToast("CSG Mathematics Engine loading... Please try again.");
@@ -826,6 +831,11 @@ window.executeCarve = () => {
                     
                     if (modified) {
                         let newMesh = CSG_LIB.toMesh(resultCSG, mesh.matrixWorld, mesh.material);
+                        
+                        // 🚀 THE FIX: Prevents the shoe from flying off the screen after a cut
+                        let inverseMatrix = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+                        newMesh.geometry.applyMatrix4(inverseMatrix);
+                        
                         mesh.geometry.dispose(); 
                         mesh.geometry = newMesh.geometry;
                     }
