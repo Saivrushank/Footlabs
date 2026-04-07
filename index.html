@@ -12,7 +12,8 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three-csg-ts@3.1.11/lib/three-csg-ts.umd.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/gh/manthrax/THREE-CSGMesh/three-csg.js"></script>
     
     <style>
         body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Roboto', sans-serif; color: #111; }
@@ -110,7 +111,7 @@
         .custom-color-text { background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
-        /* 🚀 BOOLEAN SCULPTING UI */
+        /* SCULPTING UI */
         #sculpting-section { display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px; }
         
         .slider-group { margin-bottom: 25px; }
@@ -525,8 +526,8 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
+            // 🔒 YOUR EXACT ALIGNMENT MATH
             if (!isMonolithic) {
-                // 🔒 YOUR EXACT ALIGNMENT MATH
                 rawGroup.rotation.set(0, 0, 0);
                 rawGroup.updateMatrixWorld(true);
                 
@@ -725,7 +726,7 @@ function init3DEnvironment() {
         let validMeshes = selectableParts;
         if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
         
-        // 🚀 THE FIX: Calculate World Normals so the Marker pierces 90-degrees straight into the shoe
+        // 🚀 THE FIX: Calculate absolute 90-degree World Normals so the Marker pierces straight into the shoe
         if (currentSculptTool !== 'none' && activePart) {
             
             const markerHits = raycaster.intersectObjects(markerGroup.children, true);
@@ -745,7 +746,6 @@ function init3DEnvironment() {
                 let size = parseFloat(document.getElementById('tool-size').value);
                 
                 let geo;
-                // Length is locked to 20 so it cuts all the way through
                 if (currentSculptTool === 'cylinder') {
                     geo = new THREE.CylinderGeometry(size, size, 20, 32);
                 } else {
@@ -755,12 +755,17 @@ function init3DEnvironment() {
                 let mat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.5, depthTest: false });
                 let marker = new THREE.Mesh(geo, mat);
                 
+                // Snap to point
                 marker.position.copy(intersect.point);
                 
-                // 🚀 NORMALS FIX: Plunges the cylinder's Y-axis perfectly down into the shoe surface
-                let normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
-                let worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
-                marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), worldNormal);
+                // 🚀 NORMALS FIX: Finds the absolute normal factoring in the 90-degree wrapper rotations
+                let worldNormal = intersect.face.normal.clone().transformDirection(intersect.object.matrixWorld).normalize();
+                
+                // Forces the marker to look out from the face, then rotates the cylinder to plunge into it
+                marker.lookAt(intersect.point.clone().add(worldNormal));
+                if (currentSculptTool === 'cylinder') {
+                    marker.rotateX(Math.PI / 2); 
+                }
                 
                 markerGroup.add(marker);
                 sculptMarkers.push(marker);
@@ -801,8 +806,8 @@ window.executeCarve = () => {
         return;
     }
     
-    // 🚀 THE FIX: Defining the CSG engine correctly so it never crashes!
-    const CSG_LIB = window.THREE_CSG_TS ? window.THREE_CSG_TS.CSG : null;
+    // 🚀 THE FIX: Relying on the bulletproof window.CSG from the Manthrax library
+    const CSG_LIB = window.CSG;
     
     if (!CSG_LIB) {
         showToast("CSG Mathematics Engine loading... Please try again.");
@@ -819,23 +824,19 @@ window.executeCarve = () => {
             targetMod.traverse(mesh => {
                 if (mesh.isMesh) {
                     mesh.updateMatrixWorld(true);
-                    let resultCSG = CSG_LIB.fromMesh(mesh);
+                    let bspA = CSG_LIB.fromMesh(mesh);
                     let modified = false;
                     
                     sculptMarkers.forEach(marker => {
                         marker.updateMatrixWorld(true);
-                        let toolCSG = CSG_LIB.fromMesh(marker);
-                        resultCSG = resultCSG.subtract(toolCSG);
+                        let bspB = CSG_LIB.fromMesh(marker);
+                        bspA = bspA.subtract(bspB);
                         modified = true;
                     });
                     
                     if (modified) {
-                        let newMesh = CSG_LIB.toMesh(resultCSG, mesh.matrixWorld, mesh.material);
-                        
-                        // 🚀 THE FIX: Prevents the shoe from flying off the screen after a cut
-                        let inverseMatrix = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
-                        newMesh.geometry.applyMatrix4(inverseMatrix);
-                        
+                        // 🚀 THE FIX: CSG.toMesh natively drops the geometry back in its correct local space. No manual shifting required!
+                        let newMesh = CSG_LIB.toMesh(bspA, mesh.matrixWorld, mesh.material);
                         mesh.geometry.dispose(); 
                         mesh.geometry = newMesh.geometry;
                     }
