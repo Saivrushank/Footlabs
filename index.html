@@ -10,9 +10,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three-csg-ts@3.1.11/lib/three-csg-ts.umd.js"></script>
+    
+    <script src="https://unpkg.com/three-csg-ts@3.1.11/lib/three-csg-ts.umd.js"></script>
     
     <style>
         body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Roboto', sans-serif; color: #111; touch-action: none; }
@@ -119,6 +119,12 @@
         #safety-readout { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 15px; border-radius: 6px; font-family: 'Share Tech Mono'; font-size: 11px; margin-top: 30px; transition: 0.3s; pointer-events: none;}
         #safety-readout.warning { background: #ffebee; border-color: #ffcdd2; color: #c62828; animation: pulse 1s infinite;}
         
+        @keyframes pulse { 
+            0% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0.4); } 
+            70% { box-shadow: 0 0 0 10px rgba(229, 57, 53, 0); } 
+            100% { box-shadow: 0 0 0 0 rgba(229, 57, 53, 0); } 
+        }
+
         .ds-controls { display: flex; justify-content: space-between; margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px;}
         .ds-btn { padding: 12px 20px; border: 1px solid #111; background: transparent; border-radius: 30px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: 0.2s; color: #111;}
         .ds-btn:hover { background: #111; color: #fff;}
@@ -144,20 +150,8 @@
         .btn-close { text-align: center; margin-top: 15px; font-size: 12px; color: #888; cursor: pointer; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;}
         .btn-close:hover { color: #111; }
 
-        /* 🚀 INJECTED: MOBILE RESPONSIVE UI */
         @media (max-width: 768px) {
-            #configurator-panel {
-                width: 100%; 
-                right: 0; 
-                left: 0; 
-                bottom: 0; 
-                top: auto; 
-                height: 45vh; 
-                border-radius: 24px 24px 0 0; 
-                border: none; 
-                border-top: 1px solid rgba(255,255,255,0.5);
-                box-shadow: 0 -10px 30px rgba(0,0,0,0.1);
-            }
+            #configurator-panel { width: 100%; right: 0; left: 0; bottom: 0; top: auto; height: 45vh; border-radius: 24px 24px 0 0; border: none; border-top: 1px solid rgba(255,255,255,0.5); box-shadow: 0 -10px 30px rgba(0,0,0,0.1); }
             .snapshot-btn { top: 15px; left: 15px; }
             #toast-container { top: 15px; }
             .checkout-area { margin: auto 20px 20px 20px; }
@@ -404,7 +398,6 @@ let designerCurrentStep = 1;
 
 let shoeModules = { sole: null, upper: null, laces: null };
 
-// Sculpting State Variables
 let currentSculptTool = 'none';
 let sculptMarkers = [];
 let markerGroup = new THREE.Group();
@@ -516,7 +509,6 @@ function init3DEnvironment() {
     floor.receiveShadow = true;
     scene.add(floor);
 
-    // 🔒 100% YOUR EXACT ALIGNMENT MATCH - NO ROTATION ADDED
     shoe = new THREE.Group();
     scene.add(shoe);
     
@@ -537,23 +529,23 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // 🔒 100% YOUR EXACT ALIGNMENT CODE
+            // 🔒 100% YOUR EXACT ALIGNMENT CODE FROM YOUR MESSAGE
             if (!isMonolithic) {
-                rawGroup.rotation.set(0, 0, 0);
+                if (category === 'upper' || category === 'laces') rawGroup.rotation.x = -Math.PI / 2;
                 rawGroup.updateMatrixWorld(true);
-                
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
                 if(!box.isEmpty() && isFinite(box.max.y)) box.getCenter(center);
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
-                
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
                 
-                wrapper.rotation.y = -Math.PI / 2; 
+                if (category === 'upper' || category === 'laces') {
+                    wrapper.rotation.y = -Math.PI / 2; 
+                }
                 
                 wrapper.add(rawGroup);
                 shoeModules[category] = wrapper;
@@ -615,7 +607,7 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // 🔒 100% YOUR EXACT STACKING MATH
+    // 🔒 YOUR EXACT STACKING MATH
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
         
@@ -630,7 +622,7 @@ function init3DEnvironment() {
         let soleHeight = soleBox.max.y - soleBox.min.y;
         let upperHeight = upperBox.max.y - upperBox.min.y;
         
-        let stackY = (soleHeight / 2) + (upperHeight / 2) +0.0001; 
+        let stackY = (soleHeight / 2) + (upperHeight / 2) + 0.0001; 
         
         shoeModules.upper.userData.targetY = stackY;
         
@@ -755,6 +747,7 @@ function init3DEnvironment() {
                 let size = parseFloat(document.getElementById('tool-size').value);
                 
                 let geo;
+                // Length is locked to 20 so it cuts deeply
                 if (currentSculptTool === 'cylinder') {
                     geo = new THREE.CylinderGeometry(size, size, 20, 32);
                 } else {
@@ -766,11 +759,11 @@ function init3DEnvironment() {
                 
                 marker.position.copy(intersect.point);
                 
-                // 🚀 FIXED: This calculates the absolute 90-degree tangent using your exact alignment.
-                // Because both cylinder and box geometry have their length (20) along the Y-axis natively,
-                // matching the Y-axis to the normal plunges the tool perfectly straight into the surface.
+                // 🚀 FIXED: Absolute normal calculation for the perfect 90-degree plunge
                 let normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
                 let worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
+                
+                // Align Y-axis directly into the surface
                 marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), worldNormal);
                 
                 markerGroup.add(marker);
@@ -811,8 +804,7 @@ window.executeCarve = () => {
         return;
     }
     
-    // 🚀 FIXED: Safely maps the CSG engine using the correct variable name to avoid ReferenceErrors.
-    const CSG_LIB = window.THREE_CSG_TS ? window.THREE_CSG_TS.CSG : window.CSG;
+    const CSG_LIB = window.CSG || (window.THREE_CSG_TS ? window.THREE_CSG_TS.CSG : null);
     
     if (!CSG_LIB) {
         showToast("CSG Mathematics Engine loading... Please try again.");
@@ -829,18 +821,20 @@ window.executeCarve = () => {
             targetMod.traverse(mesh => {
                 if (mesh.isMesh) {
                     mesh.updateMatrixWorld(true);
-                    let resultCSG = CSG_LIB.fromMesh(mesh); // FIXED: Calling the right variable
+                    let resultCSG = CSG_LIB.fromMesh(mesh);
                     let modified = false;
                     
                     sculptMarkers.forEach(marker => {
                         marker.updateMatrixWorld(true);
-                        let toolCSG = CSG_LIB.fromMesh(marker); // FIXED: Calling the right variable
+                        let toolCSG = CSG_LIB.fromMesh(marker);
                         resultCSG = resultCSG.subtract(toolCSG);
                         modified = true;
                     });
                     
                     if (modified) {
                         let newMesh = CSG_LIB.toMesh(resultCSG, mesh.matrixWorld, mesh.material);
+                        let inverseMatrix = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
+                        newMesh.geometry.applyMatrix4(inverseMatrix);
                         mesh.geometry.dispose(); 
                         mesh.geometry = newMesh.geometry;
                     }
@@ -918,7 +912,7 @@ function selectPart(target) {
         }
 
         document.getElementById('scale-x').value = targetMod.scale[mapX] / targetMod.userData.baseScale[mapX];
-        // 🚀 FIXED: Corrected the double-getElementById typo that crashed the slider
+        // 🚀 FIXED: The fatal typo is completely removed
         document.getElementById('scale-y').value = targetMod.scale.y / targetMod.userData.baseScale.y;
         document.getElementById('scale-z').value = targetMod.scale[mapZ] / targetMod.userData.baseScale[mapZ];
         
