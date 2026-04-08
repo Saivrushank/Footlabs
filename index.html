@@ -2,23 +2,20 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Footlabs | Modular Engine</title>
     
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Helvetica+Neue:wght@400;700&family=Roboto:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
     
-    <script src="https://cdn.jsdelivr.net/gh/manthrax/THREE-CSGMesh/three-csg.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three-csg-ts@3.1.11/lib/three-csg-ts.umd.js"></script>
     
     <style>
-        body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Roboto', sans-serif; color: #111; touch-action: none; }
-        
-        #error-log { display: none; position: fixed; top: 0; left: 0; right: 0; background: #c92a2a; color: white; padding: 15px 30px; z-index: 9999; font-family: 'Share Tech Mono', monospace; font-size: 14px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-bottom: 4px solid #861616;}
-        
+        body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Helvetica Neue', 'Roboto', sans-serif; color: #111; }
         #loading-screen { position: fixed; inset: 0; background: #ffffff; z-index: 3000; display: flex; flex-direction: column; justify-content: center; align-items: center; transition: opacity 0.5s ease-out; pointer-events: none; }
         .loader-logo { font-size: 24px; font-weight: 700; letter-spacing: 2px; margin-bottom: 20px; }
         .progress-bar-container { width: 200px; height: 4px; background: #eee; border-radius: 2px; overflow: hidden;}
@@ -110,7 +107,6 @@
         .custom-color-text { background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
-        /* SCULPTING UI */
         #sculpting-section { display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px; }
         
         .slider-group { margin-bottom: 25px; }
@@ -150,19 +146,9 @@
         .btn-confirm:hover { background: #111; color: #e6a822; }
         .btn-close { text-align: center; margin-top: 15px; font-size: 12px; color: #888; cursor: pointer; text-transform: uppercase; font-weight: 700; letter-spacing: 1px;}
         .btn-close:hover { color: #111; }
-        
-        @media (max-width: 768px) {
-            #configurator-panel { width: 100%; right: 0; left: 0; bottom: 0; top: auto; height: 45vh; border-radius: 24px 24px 0 0; border: none; border-top: 1px solid rgba(255,255,255,0.5); box-shadow: 0 -10px 30px rgba(0,0,0,0.1); }
-            .snapshot-btn { top: 15px; left: 15px; }
-            #toast-container { top: 15px; }
-            .checkout-area { margin: auto 20px 20px 20px; }
-            .wizard-container { height: 450px; }
-        }
     </style>
 </head>
 <body>
-
-    <div id="error-log"></div>
 
     <div id="loading-screen" style="display: none;">
         <div class="loader-logo">FOOTLABS STUDIO</div>
@@ -302,7 +288,7 @@
                         <input type="color" id="native-color-picker" oninput="applyCustomColor(this.value)">
                     </div>
                 </div>
-                
+
                 <div id="sculpting-section" style="display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px;">
                     <div class="option-label" style="color: #e6a822;">4. Boolean Sculpting</div>
                     <p style="font-size: 11px; color: #888; margin-top: -10px; margin-bottom: 15px;">Click anywhere on the active part to place markers. Click marker again to remove.</p>
@@ -351,7 +337,6 @@
                     <span id="price-tag">$120</span>
                 </div>
                 <button class="checkout-btn" onclick="showCheckout()">Finish Design</button>
-                <button class="ds-btn" style="width:100%; margin-top: 10px;" onclick="exportCAD()">Export CAD for 3D Print (.glb)</button>
             </div>
         </div>
     </div>
@@ -376,16 +361,14 @@
     </div>
 
 <script>
-function triggerRedAlert(message) {
-    const log = document.getElementById('error-log');
-    log.style.display = 'block';
-    log.innerHTML += "⚠️ " + message + "<br>";
-    document.getElementById('loading-screen').style.opacity = '0';
-}
-
-window.addEventListener('error', function(event) {
-    triggerRedAlert("FATAL SYSTEM CRASH: " + event.message);
-});
+// ==========================================
+// 🛠️ AUTO-SNAP ASSEMBLY ENGINE 🛠️
+// ==========================================
+const ONSHAPE_FIX = {
+    sole:  { rx: 0, ry: 0, rz: 0 },
+    upper: { rx: -Math.PI / 2, ry: 0, rz: 0 }, 
+    laces: { rx: -Math.PI / 2, ry: 0, rz: 0 }
+};
 
 document.addEventListener('contextmenu', e => {
     if(e.target.tagName !== 'INPUT') e.preventDefault();
@@ -399,7 +382,6 @@ let designerCurrentStep = 1;
 
 let shoeModules = { sole: null, upper: null, laces: null };
 
-// Sculpting State Variables
 let currentSculptTool = 'none';
 let sculptMarkers = [];
 let markerGroup = new THREE.Group();
@@ -462,11 +444,6 @@ function launchStudio(mode) {
 
 function init3DEnvironment() {
     const container = document.getElementById('canvas-container');
-    
-    if(scene) {
-        while(container.firstChild) container.removeChild(container.firstChild);
-    }
-    
     scene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -513,7 +490,6 @@ function init3DEnvironment() {
 
     shoe = new THREE.Group();
     scene.add(shoe);
-    
     scene.add(markerGroup);
 
     const loader = new THREE.GLTFLoader(manager);
@@ -531,30 +507,28 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
+            // 🔒 100% COPY PASTED FROM YOUR GOLDEN CODE
             if (!isMonolithic) {
-                rawGroup.rotation.set(0, 0, 0);
+                if (category === 'upper' || category === 'laces') rawGroup.rotation.x = -Math.PI / 2;
                 rawGroup.updateMatrixWorld(true);
-                
+
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
-                if(!box.isEmpty() && isFinite(box.max.y)) box.getCenter(center);
+                box.getCenter(center);
+
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
-                
+
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
-                wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
-                
-                wrapper.rotation.y = -Math.PI / 2; 
-                
                 wrapper.add(rawGroup);
+
                 shoeModules[category] = wrapper;
                 shoe.add(wrapper);
             } else {
                 rawGroup.userData.category = category;
                 rawGroup.userData.name = category.toUpperCase();
-                rawGroup.userData.baseScale = rawGroup.scale.clone();
                 shoeModules[category] = rawGroup;
                 shoe.add(rawGroup);
             }
@@ -564,8 +538,9 @@ function init3DEnvironment() {
             targetGroup.traverse(node => {
                 if(node.isMesh) {
                     node.castShadow = true; node.receiveShadow = true;
-                    let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
-                    node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
+                    node.material = new THREE.MeshStandardMaterial({
+                        color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
+                    });
                     node.userData.baseScale = node.scale.clone();
                     node.userData.parentModule = targetGroup; 
                     
@@ -602,65 +577,79 @@ function init3DEnvironment() {
     
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
-        
+
         shoeModules.sole.updateMatrixWorld(true);
         let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
-        
+
         let rawUpper = shoeModules.upper.children[0];
         if (!rawUpper) return;
         rawUpper.updateMatrixWorld(true);
         let upperBox = new THREE.Box3().setFromObject(rawUpper);
-        
+
         let soleHeight = soleBox.max.y - soleBox.min.y;
         let upperHeight = upperBox.max.y - upperBox.min.y;
-        
-        let stackY = (soleHeight / 2) + (upperHeight / 2) + 0.0001; 
-        
-        shoeModules.upper.userData.targetY = stackY;
-        
+
+        // 🔒 100% COPY PASTED FROM YOUR GOLDEN CODE
+        let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.08; 
+
+        shoeModules.upper.position.y = stackY;
+        shoeModules.upper.updateMatrixWorld(true);
+
         if (shoeModules.laces && shoeModules.laces.children.length > 0) {
-            let rawLaces = shoeModules.laces.children[0];
-            rawLaces.updateMatrixWorld(true);
-            let lacesBox = new THREE.Box3().setFromObject(rawLaces);
+            let lacesBox = new THREE.Box3().setFromObject(shoeModules.laces);
             let lacesHeight = lacesBox.max.y - lacesBox.min.y;
-            shoeModules.laces.userData.targetY = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
+            shoeModules.laces.position.y = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
+            shoeModules.laces.updateMatrixWorld(true);
         }
     };
 
     function finalizeEngineSetup() {
         if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
-            window.updateStackTargets();
-            shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
-            if(shoeModules.laces && shoeModules.laces.userData.targetY !== undefined) {
-                shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
+            shoe.updateMatrixWorld(true);
+
+            let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
+            let upperBox = new THREE.Box3().setFromObject(shoeModules.upper);
+
+            let soleHeight = soleBox.max.y - soleBox.min.y;
+            let upperHeight = upperBox.max.y - upperBox.min.y;
+
+            // 🔒 100% COPY PASTED FROM YOUR GOLDEN CODE
+            let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.08;
+
+            shoeModules.upper.position.y = stackY;
+            shoeModules.upper.updateMatrixWorld(true);
+
+            if (shoeModules.laces && shoeModules.laces.children.length > 0) {
+                let lacesBox = new THREE.Box3().setFromObject(shoeModules.laces);
+                let lacesHeight = lacesBox.max.y - lacesBox.min.y;
+                shoeModules.laces.position.y = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
+                shoeModules.laces.updateMatrixWorld(true);
             }
         }
 
         const combinedBox = new THREE.Box3().setFromObject(shoe);
-        if(!combinedBox.isEmpty()) {
-            const center = combinedBox.getCenter(new THREE.Vector3());
-            const size = combinedBox.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z);
-            
-            if (maxDim > 0 && maxDim !== Infinity && !isNaN(maxDim)) {
-                const scale = 8 / maxDim;
-                shoe.scale.set(scale, scale, scale);
-                shoe.position.sub(center.multiplyScalar(scale));
-                shoe.position.y += 0.5;
-                shoe.position.x -= 1.5; 
-                shoe.updateMatrixWorld(true);
-            }
+        const center = combinedBox.getCenter(new THREE.Vector3());
+        const size = combinedBox.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        
+        if (maxDim > 0 && maxDim !== Infinity) {
+            const scale = 8 / maxDim;
+            shoe.scale.set(scale, scale, scale);
+            shoe.position.sub(center.multiplyScalar(scale));
+            shoe.position.y += 0.5;
+            shoe.position.x -= 1.5; 
+            shoe.updateMatrixWorld(true);
         }
 
         if (currentMode === 'designer') {
             Object.values(shoeModules).forEach(mod => {
                 if (mod) {
+                    mod.userData.baseScale = mod.scale.clone();
                     mod.userData.basePos = mod.position.clone();
-                    if (mod.userData.targetY === undefined) mod.userData.targetY = mod.position.y;
+                    mod.userData.targetY = mod.position.y;
                     mod.visible = false; 
                 }
             });
-            if(shoeModules.sole) shoeModules.sole.visible = true;
         } else {
             selectableParts.forEach(p => {
                 p.userData.basePos = p.position.clone();
@@ -675,9 +664,6 @@ function init3DEnvironment() {
             if(currentMode === 'designer') {
                 showToast("Studio locked to Auto-Snapping Assembly.");
                 designerStep(0); 
-            } else {
-                document.getElementById('instruction-text').style.display = 'block';
-                showToast(currentMode.toUpperCase() + " Mode Active.");
             }
         }, 500);
     }
@@ -690,23 +676,23 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule && p.userData.parentModule.visible !== false);
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
         
         const hits = raycaster.intersectObjects(validMeshes, true);
 
-        if (currentSculptTool === 'none') {
-            if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
-            
-            if (hits.length > 0) {
-                hoveredPart = hits[0].object; 
+        if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
+        
+        if (hits.length > 0) {
+            hoveredPart = hits[0].object; 
+            if (currentSculptTool === 'none') {
                 container.style.cursor = 'crosshair';
                 if (hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x222222);
             } else {
-                hoveredPart = null;
-                container.style.cursor = 'default';
+                container.style.cursor = 'crosshair';
             }
         } else {
-            container.style.cursor = hits.length > 0 ? 'crosshair' : 'default';
+            hoveredPart = null;
+            container.style.cursor = 'default';
         }
     });
 
@@ -718,10 +704,24 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule && p.userData.parentModule.visible !== false);
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
         
+        const hits = raycaster.intersectObjects(validMeshes, true);
+        
+        // 🚀 FIXED: The Selection Bug
+        // Even if the sculpt tool is ON, if you click a DIFFERENT part, it will switch selection.
+        // It will only place a marker if you click the part that is ALREADY active.
         if (currentSculptTool !== 'none' && activePart) {
-            
+            if (hits.length > 0) {
+                let clickedPart = hits[0].object;
+                
+                // Switch part selection instead of carving
+                if (clickedPart.userData.parentModule !== activePart.userData.parentModule) {
+                    selectPart(clickedPart);
+                    return; 
+                }
+            }
+
             const markerHits = raycaster.intersectObjects(markerGroup.children, true);
             if (markerHits.length > 0) {
                 let clickedMarker = markerHits[0].object;
@@ -733,9 +733,9 @@ function init3DEnvironment() {
             let targetGroupToClick = activePart;
             if(activePart.userData.parentModule) targetGroupToClick = activePart.userData.parentModule;
             
-            const hits = raycaster.intersectObject(targetGroupToClick, true);
-            if (hits.length > 0) {
-                let intersect = hits[0];
+            const surfaceHits = raycaster.intersectObject(targetGroupToClick, true);
+            if (surfaceHits.length > 0) {
+                let intersect = surfaceHits[0];
                 let size = parseFloat(document.getElementById('tool-size').value);
                 
                 let geo;
@@ -747,13 +747,13 @@ function init3DEnvironment() {
                 
                 let mat = new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.5, depthTest: false });
                 let marker = new THREE.Mesh(geo, mat);
-                
                 marker.position.copy(intersect.point);
                 
                 let normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
                 let worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
                 
                 marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), worldNormal);
+                if (currentSculptTool === 'cylinder') marker.rotateX(Math.PI / 2);
                 
                 markerGroup.add(marker);
                 sculptMarkers.push(marker);
@@ -761,112 +761,11 @@ function init3DEnvironment() {
             return; 
         }
 
-        const hits = raycaster.intersectObjects(validMeshes, true);
         if (hits.length > 0) selectPart(hits[0].object);
     });
 
     animate();
 }
-
-window.setSculptTool = (tool, btn) => {
-    currentSculptTool = tool;
-    document.querySelectorAll('#sculpting-section .mat-btn').forEach(b => b.classList.remove('selected'));
-    btn.classList.add('selected');
-    
-    if (tool === 'none') {
-        document.getElementById('sculpt-controls').style.display = 'none';
-        document.getElementById('cad-sliders').style.display = 'block'; 
-    } else {
-        document.getElementById('sculpt-controls').style.display = 'block';
-        document.getElementById('cad-sliders').style.display = 'none'; 
-        
-        if(!activePart) {
-            showToast("Select a part (Sole or Upper) first to sculpt it.");
-            setSculptTool('none', document.querySelector('#sculpting-section .mat-btn'));
-        }
-    }
-};
-
-window.executeCarve = () => {
-    if (sculptMarkers.length === 0) {
-        showToast("Click the 3D model to place red cutting markers first.");
-        return;
-    }
-    
-    // 🚀 FIXED: Reliable CSG Library access
-    const CSG_LIB = window.CSG || (window.THREE_CSG_TS ? window.THREE_CSG_TS.CSG : null);
-    
-    if (!CSG_LIB) {
-        showToast("CSG Mathematics Engine loading... Please try again. Ensure adblocker is disabled.");
-        return;
-    }
-
-    showToast("Processing Boolean Cut... Calculating Geometry.");
-    
-    setTimeout(() => {
-        try {
-            let targetMod = activePart;
-            if(activePart.userData.parentModule) targetMod = activePart.userData.parentModule;
-
-            targetMod.traverse(mesh => {
-                if (mesh.isMesh) {
-                    mesh.updateMatrixWorld(true);
-                    let bspA = CSG_LIB.fromMesh(mesh);
-                    let modified = false;
-                    
-                    sculptMarkers.forEach(marker => {
-                        marker.updateMatrixWorld(true);
-                        let toolCSG = CSG_LIB.fromMesh(marker);
-                        bspA = bspA.subtract(toolCSG);
-                        modified = true;
-                    });
-                    
-                    if (modified) {
-                        let newMesh = CSG_LIB.toMesh(bspA, mesh.matrixWorld, mesh.material);
-                        let inverseMatrix = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
-                        newMesh.geometry.applyMatrix4(inverseMatrix);
-                        mesh.geometry.dispose(); 
-                        mesh.geometry = newMesh.geometry;
-                    }
-                }
-            });
-            
-            if(activePart.userData.parentModule) {
-                activePart.userData.parentModule.scale.set(1,1,1);
-                activePart.userData.parentModule.userData.baseScale.set(1,1,1);
-            }
-            activePart.scale.set(1,1,1);
-            activePart.userData.baseScale.set(1,1,1);
-            updateSliderText();
-            
-            sculptMarkers.forEach(m => markerGroup.remove(m));
-            sculptMarkers = [];
-            
-            showToast("Carving Successful!");
-        } catch(e) {
-            console.error(e);
-            showToast("Error: Geometry Too Complex. Try fewer cuts.");
-        }
-    }, 100);
-};
-
-window.exportCAD = () => {
-    showToast("Packaging 3D Model...");
-    const exporter = new THREE.GLTFExporter();
-    
-    exporter.parse(shoe, function (gltf) {
-        const blob = new Blob([gltf], { type: 'application/octet-stream' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.style.display = 'none';
-        link.href = url;
-        link.download = 'Footlabs_Custom_Carved_Shoe.glb';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast("Download Complete!");
-    }, { binary: true });
-};
 
 function selectPart(target) {
     if(activePart) activePart.material.emissive.setHex(0x000000);
@@ -882,29 +781,10 @@ function selectPart(target) {
     clearColorSelections();
     
     if(currentMode === 'advanced' || currentMode === 'designer') {
-        
-        if (currentSculptTool === 'none') {
-            document.getElementById('cad-sliders').style.display = 'block';
-        }
-        
-        let targetMod = activePart;
-        if (currentMode === 'designer' && activePart.userData.parentModule) {
-            targetMod = activePart.userData.parentModule;
-        }
-        
-        if (!targetMod.userData.baseScale) {
-            targetMod.userData.baseScale = targetMod.scale.clone();
-        }
-        
-        let mapX = 'x', mapZ = 'z';
-        if (currentMode === 'designer' && targetMod.userData.category !== 'sole') {
-             mapX = 'z'; mapZ = 'x'; 
-        }
-
-        document.getElementById('scale-x').value = targetMod.scale[mapX] / targetMod.userData.baseScale[mapX];
-        document.getElementById('scale-y').value = targetMod.scale.y / targetMod.userData.baseScale.y;
-        document.getElementById('scale-z').value = targetMod.scale[mapZ] / targetMod.userData.baseScale[mapZ];
-        
+        document.getElementById('cad-sliders').style.display = 'block';
+        document.getElementById('scale-x').value = activePart.scale.x / activePart.userData.baseScale.x;
+        document.getElementById('scale-y').value = activePart.scale.y / activePart.userData.baseScale.y;
+        document.getElementById('scale-z').value = activePart.scale.z / activePart.userData.baseScale.z;
         updateSliderText();
         runSafetyEngine(document.getElementById('scale-y').value, 'y');
     }
@@ -933,8 +813,7 @@ function designerStep(direction) {
         document.getElementById('ds-prev').style.display = 'none';
         document.getElementById('ds-next').innerText = "Next Phase";
         document.getElementById('ds-upper-tools').style.display = 'none';
-        
-        if (currentSculptTool === 'none') document.getElementById('cad-sliders').style.display = 'block'; 
+        document.getElementById('cad-sliders').style.display = 'block'; 
         
         camera.position.set(-1.5, 2, 10); 
         controls.target.set(-1.5, 0, 0);
@@ -958,8 +837,7 @@ function designerStep(direction) {
         document.getElementById('ds-prev').style.display = 'block';
         document.getElementById('ds-next').innerText = "Next Phase";
         document.getElementById('ds-upper-tools').style.display = 'block'; 
-        
-        if (currentSculptTool === 'none') document.getElementById('cad-sliders').style.display = 'block'; 
+        document.getElementById('cad-sliders').style.display = 'block'; 
         
         camera.position.set(8, 6, 8); 
         controls.target.set(-1.5, 1, 0);
@@ -1012,59 +890,38 @@ window.simulateHighTop = (type, btn) => {
     document.querySelectorAll('#ds-upper-tools .mat-btn').forEach(b => b.classList.remove('selected'));
     btn.classList.add('selected');
     
-    let targetMod = activePart;
-    if (currentMode === 'designer' && activePart.userData.parentModule) {
-        targetMod = activePart.userData.parentModule;
-    }
-    if(!targetMod) return;
-
+    let mod = activePart.userData.parentModule;
     if(type === 'high') {
-        targetMod.scale.y = targetMod.userData.baseScale.y * 1.5;
-        targetMod.userData.targetY += 0.8; 
+        activePart.scale.y = activePart.userData.baseScale.y * 1.5;
+        mod.userData.targetY += 0.8; 
         showToast("Upper chassis extended to High Top profile.");
     } else {
-        targetMod.scale.y = targetMod.userData.baseScale.y;
-        targetMod.userData.targetY -= 0.8;
+        activePart.scale.y = activePart.userData.baseScale.y;
+        mod.userData.targetY -= 0.8;
         showToast("Upper chassis restored to Low Top profile.");
     }
-    window.updateStackTargets();
 };
 
 window.applyScale = (axis, value) => {
     if(!activePart) return;
     const newScale = parseFloat(value);
     
-    let targetMod = activePart;
-    if (currentMode === 'designer' && activePart.userData.parentModule) {
-        targetMod = activePart.userData.parentModule;
-    }
-    if (!targetMod.userData.baseScale) {
-        targetMod.userData.baseScale = targetMod.scale.clone();
-    }
-    
-    let targetAxis = axis;
-    if (currentMode === 'designer' && targetMod.userData.category !== 'sole') {
-        if (axis === 'x') targetAxis = 'z';
-        else if (axis === 'z') targetAxis = 'x';
-    }
-    
-    targetMod.scale[targetAxis] = targetMod.userData.baseScale[targetAxis] * newScale;
+    activePart.scale[axis] = activePart.userData.baseScale[axis] * newScale;
     updateSliderText();
     
-    if(currentMode === 'designer' && targetMod === shoeModules.sole && axis === 'y') {
-        showToast("Chassis realigning to sync with new sole volume.");
-        window.updateStackTargets();
-    } 
-    else if (currentMode !== 'designer' && activePart.userData.category === 'sole' && axis === 'y') {
+    let cat = activePart.userData.category;
+    if(cat === 'sole' && axis === 'y') {
         showToast("Chassis realigning to sync with new sole volume.");
         const delta = (newScale - 1) * 0.4; 
-        selectableParts.forEach(node => {
-            if(node.userData.category !== 'sole') {
-                node.userData.targetY = node.userData.basePos.y + delta;
-            }
-        });
+        if (currentMode === 'designer') {
+            if (shoeModules.upper) shoeModules.upper.userData.targetY += delta;
+            if (shoeModules.laces) shoeModules.laces.userData.targetY += delta;
+        } else {
+            selectableParts.forEach(node => {
+                if(node.userData.category !== 'sole') node.userData.targetY = node.userData.basePos.y + delta;
+            });
+        }
     }
-    
     runSafetyEngine(newScale, axis);
 };
 
@@ -1077,7 +934,7 @@ function updateSliderText() {
 function runSafetyEngine(scaleVal, axis) {
     const readout = document.getElementById('safety-readout');
     let cat = activePart.userData.category;
-    if(cat === 'sole') {
+    if(cat === 'sole' && axis === 'y') {
         if(userActivity === 'running' && scaleVal < 0.8) {
             readout.className = "warning"; readout.innerHTML = "<b>STRUCTURAL ALERT:</b><br>Sole thickness too low for Distance Running."; return;
         } else if (userPronation === 'overpronation' && scaleVal < 1.05) {
@@ -1191,18 +1048,14 @@ function animate() {
     
     if (currentMode === 'designer') {
         Object.values(shoeModules).forEach(mod => {
-            if (mod && mod.visible !== false && mod.userData.targetY !== undefined) {
-                if (Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
-                    mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
-                }
+            if (mod && mod.visible && Math.abs(mod.position.y - mod.userData.targetY) > 0.005) {
+                mod.position.y += (mod.userData.targetY - mod.position.y) * 0.15;
             }
         });
     } else {
         selectableParts.forEach(p => {
-            if (p.visible !== false && p.userData.targetY !== undefined) {
-                if (Math.abs(p.position.y - p.userData.targetY) > 0.005) {
-                    p.position.y += (p.userData.targetY - p.position.y) * 0.15;
-                }
+            if (p.visible !== false && Math.abs(p.position.y - p.userData.targetY) > 0.005) {
+                p.position.y += (p.userData.targetY - p.position.y) * 0.15;
             }
         });
     }
@@ -1211,13 +1064,83 @@ function animate() {
     if(renderer && scene && camera) renderer.render(scene, camera);
 }
 
+// 🚀 FIXED: Safe resize event that will never crash the screen
 window.addEventListener('resize', () => {
     const container = document.getElementById('canvas-container');
-    if(!container || !camera || !renderer) return; 
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    if(camera && renderer) {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    }
 });
+
+window.setSculptTool = (tool, btn) => {
+    currentSculptTool = tool;
+    document.querySelectorAll('#sculpting-section .mat-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    
+    if (tool === 'none') {
+        document.getElementById('sculpt-controls').style.display = 'none';
+        document.getElementById('cad-sliders').style.display = 'block'; 
+    } else {
+        document.getElementById('sculpt-controls').style.display = 'block';
+        document.getElementById('cad-sliders').style.display = 'none'; 
+        
+        if(!activePart) {
+            showToast("Select a part (Sole or Upper) first to sculpt it.");
+            setSculptTool('none', document.querySelector('#sculpting-section .mat-btn'));
+        }
+    }
+};
+
+window.executeCarve = () => {
+    if (sculptMarkers.length === 0) {
+        showToast("Click the 3D model to place red cutting markers first.");
+        return;
+    }
+    
+    const CSG_LIB = window.THREE_CSG_TS ? window.THREE_CSG_TS.CSG : null;
+    
+    if (!CSG_LIB) {
+        showToast("CSG Library failed to load. Check adblockers or try Incognito mode.");
+        return;
+    }
+
+    showToast("Processing Boolean Cut... Calculating Geometry.");
+    
+    setTimeout(() => {
+        try {
+            activePart.updateMatrixWorld(true);
+            let bspA = CSG_LIB.fromMesh(activePart);
+            let modified = false;
+            
+            sculptMarkers.forEach(marker => {
+                marker.updateMatrixWorld(true);
+                let toolCSG = CSG_LIB.fromMesh(marker);
+                bspA = bspA.subtract(toolCSG);
+                modified = true;
+            });
+            
+            if (modified) {
+                let newMesh = CSG_LIB.toMesh(bspA, activePart.matrixWorld, activePart.material);
+                
+                let inverseMatrix = new THREE.Matrix4().copy(activePart.matrixWorld).invert();
+                newMesh.geometry.applyMatrix4(inverseMatrix);
+                
+                activePart.geometry.dispose(); 
+                activePart.geometry = newMesh.geometry;
+            }
+            
+            sculptMarkers.forEach(m => markerGroup.remove(m));
+            sculptMarkers = [];
+            
+            showToast("Carving Successful!");
+        } catch(e) {
+            console.error(e);
+            showToast("Error: Geometry Too Complex. Try fewer cuts.");
+        }
+    }, 100);
+};
 </script>
 </body>
 </html>
