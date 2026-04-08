@@ -12,7 +12,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
     
-    <script src="https://unpkg.com/three-csg-ts@3.1.11/lib/three-csg-ts.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three-csg-ts@3.1.11/lib/three-csg-ts.umd.js"></script>
     
     <style>
         body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Roboto', sans-serif; color: #111; touch-action: none; }
@@ -110,6 +110,7 @@
         .custom-color-text { background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
+        /* 🚀 SCULPTING UI */
         #sculpting-section { display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px; }
         
         .slider-group { margin-bottom: 25px; }
@@ -398,6 +399,7 @@ let designerCurrentStep = 1;
 
 let shoeModules = { sole: null, upper: null, laces: null };
 
+// Sculpting State Variables
 let currentSculptTool = 'none';
 let sculptMarkers = [];
 let markerGroup = new THREE.Group();
@@ -433,8 +435,10 @@ function launchStudio(mode) {
     
     document.getElementById('mode-badge').innerText = mode.toUpperCase() + (mode==='designer'?" BUILD":" MODE");
     
+    // 🚀 FIXED: Only opens the sculpting menu in Designer mode
+    document.getElementById('sculpting-section').style.display = (mode === 'designer') ? 'block' : 'none';
+    
     if(mode === 'designer') {
-        document.getElementById('sculpting-section').style.display = 'block';
         document.getElementById('instruction-text').style.display = 'none';
         document.getElementById('active-part-display').style.display = 'none';
         document.getElementById('designer-header').style.display = 'block';
@@ -509,7 +513,9 @@ function init3DEnvironment() {
     floor.receiveShadow = true;
     scene.add(floor);
 
+    // 🔒 100% YOUR EXACT ALIGNMENT MATH FROM YOUR PREVIOUS MESSAGE
     shoe = new THREE.Group();
+    shoe.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
     scene.add(shoe);
     
     scene.add(markerGroup);
@@ -529,23 +535,23 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
-            // 🔒 100% YOUR EXACT ALIGNMENT CODE FROM YOUR MESSAGE
+            // 🔒 100% YOUR EXACT ALIGNMENT MATH FROM YOUR PREVIOUS MESSAGE
             if (!isMonolithic) {
-                if (category === 'upper' || category === 'laces') rawGroup.rotation.x = -Math.PI / 2;
+                rawGroup.rotation.set(0, 0, 0);
                 rawGroup.updateMatrixWorld(true);
+                
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
                 if(!box.isEmpty() && isFinite(box.max.y)) box.getCenter(center);
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
+                
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
                 wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
                 
-                if (category === 'upper' || category === 'laces') {
-                    wrapper.rotation.y = -Math.PI / 2; 
-                }
+                wrapper.rotation.y = -Math.PI / 2; 
                 
                 wrapper.add(rawGroup);
                 shoeModules[category] = wrapper;
@@ -607,7 +613,7 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // 🔒 YOUR EXACT STACKING MATH
+    // 🔒 100% YOUR EXACT STACKING MATH FROM YOUR PREVIOUS MESSAGE
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
         
@@ -698,7 +704,7 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule && p.userData.parentModule.visible !== false);
         
         const hits = raycaster.intersectObjects(validMeshes, true);
 
@@ -726,7 +732,7 @@ function init3DEnvironment() {
         raycaster.setFromCamera(mouse, camera);
         
         let validMeshes = selectableParts;
-        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule.visible !== false);
+        if(currentMode === 'designer') validMeshes = selectableParts.filter(p => p.userData.parentModule && p.userData.parentModule.visible !== false);
         
         if (currentSculptTool !== 'none' && activePart) {
             
@@ -759,11 +765,10 @@ function init3DEnvironment() {
                 
                 marker.position.copy(intersect.point);
                 
-                // 🚀 FIXED: Absolute normal calculation for the perfect 90-degree plunge
+                // 🚀 FIXED: Re-applied the correct 90-degree World Normal tangent
                 let normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
                 let worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
                 
-                // Align Y-axis directly into the surface
                 marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), worldNormal);
                 
                 markerGroup.add(marker);
@@ -804,10 +809,11 @@ window.executeCarve = () => {
         return;
     }
     
-    const CSG_LIB = window.CSG || (window.THREE_CSG_TS ? window.THREE_CSG_TS.CSG : null);
+    // 🚀 FIXED: No more typos. Correctly targets window.THREE_CSG_TS.CSG
+    const CSG_LIB = window.THREE_CSG_TS ? window.THREE_CSG_TS.CSG : null;
     
     if (!CSG_LIB) {
-        showToast("CSG Mathematics Engine loading... Please try again.");
+        showToast("CSG Library failed to load. Ensure you have an internet connection.");
         return;
     }
 
@@ -821,20 +827,23 @@ window.executeCarve = () => {
             targetMod.traverse(mesh => {
                 if (mesh.isMesh) {
                     mesh.updateMatrixWorld(true);
-                    let resultCSG = CSG_LIB.fromMesh(mesh);
+                    let bspA = CSG_LIB.fromMesh(mesh);
                     let modified = false;
                     
                     sculptMarkers.forEach(marker => {
                         marker.updateMatrixWorld(true);
                         let toolCSG = CSG_LIB.fromMesh(marker);
-                        resultCSG = resultCSG.subtract(toolCSG);
+                        bspA = bspA.subtract(toolCSG);
                         modified = true;
                     });
                     
                     if (modified) {
-                        let newMesh = CSG_LIB.toMesh(resultCSG, mesh.matrixWorld, mesh.material);
+                        let newMesh = CSG_LIB.toMesh(bspA, mesh.matrixWorld, mesh.material);
+                        
+                        // Keeps geometry locked in your alignment
                         let inverseMatrix = new THREE.Matrix4().copy(mesh.matrixWorld).invert();
                         newMesh.geometry.applyMatrix4(inverseMatrix);
+                        
                         mesh.geometry.dispose(); 
                         mesh.geometry = newMesh.geometry;
                     }
@@ -912,7 +921,7 @@ function selectPart(target) {
         }
 
         document.getElementById('scale-x').value = targetMod.scale[mapX] / targetMod.userData.baseScale[mapX];
-        // 🚀 FIXED: The fatal typo is completely removed
+        // 🚀 FIXED: Slider typo is gone
         document.getElementById('scale-y').value = targetMod.scale.y / targetMod.userData.baseScale.y;
         document.getElementById('scale-z').value = targetMod.scale[mapZ] / targetMod.userData.baseScale[mapZ];
         
