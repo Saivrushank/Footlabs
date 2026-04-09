@@ -11,6 +11,7 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/loaders/GLTFLoader.js"></script>
     
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/exporters/GLTFExporter.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #f5f5f5; font-family: 'Helvetica Neue', 'Roboto', sans-serif; color: #111; }
         
@@ -107,11 +108,12 @@
         .custom-color-text { background: rgba(255,255,255,0.9); padding: 5px 15px; border-radius: 20px; font-size: 11px; font-weight: 700; color: #111; text-transform: uppercase; letter-spacing: 1px; pointer-events: none; }
         #native-color-picker { position: absolute; top: -10px; left: -10px; width: 120%; height: 120%; opacity: 0; cursor: pointer; }
 
-        /* 🚀 SCULPTING UI STYLES */
+        /* 🚀 SCULPTING UI INJECTED */
         #sculpting-section { display:none; margin-top:30px; border-top: 1px solid #eee; padding-top: 25px; }
         .slider-group { margin-bottom: 25px; }
         .slider-group label { display: flex; justify-content: space-between; font-size: 11px; font-family: 'Share Tech Mono'; color: #555; margin-bottom: 8px; text-transform: uppercase;}
         input[type="range"] { width: 100%; accent-color: #111; cursor: pointer; }
+        /* END SCULPTING UI */
         
         #safety-readout { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; padding: 15px; border-radius: 6px; font-family: 'Share Tech Mono'; font-size: 11px; margin-top: 30px; transition: 0.3s; pointer-events: none;}
         #safety-readout.warning { background: #ffebee; border-color: #ffcdd2; color: #c62828; animation: pulse 1s infinite;}
@@ -421,7 +423,7 @@ function launchStudio(mode) {
     document.getElementById('mode-badge').innerText = mode.toUpperCase() + (mode==='designer'?" BUILD":" MODE");
     
     if(mode === 'designer') {
-        document.getElementById('sculpting-section').style.display = 'block'; // 🚀 INJECTED: Show Sculpting UI
+        document.getElementById('sculpting-section').style.display = 'block'; 
         document.getElementById('instruction-text').style.display = 'none';
         document.getElementById('active-part-display').style.display = 'none';
         document.getElementById('designer-header').style.display = 'block';
@@ -447,6 +449,11 @@ function launchStudio(mode) {
 
 function init3DEnvironment() {
     const container = document.getElementById('canvas-container');
+    
+    if(scene) {
+        while(container.firstChild) container.removeChild(container.firstChild);
+    }
+    
     scene = new THREE.Scene();
 
     camera = new THREE.PerspectiveCamera(35, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -511,33 +518,32 @@ function init3DEnvironment() {
         loader.load('models/' + filename, (gltf) => {
             let rawGroup = gltf.scene;
             
+            // 🔒 100% EXACT MATH FROM YOUR CODE
             if (!isMonolithic) {
-                // DO NOT ROTATE THE RAW FILE. Let it stay completely horizontal.
-                rawGroup.rotation.set(0, 0, 0);
+                if (category === 'upper' || category === 'laces') rawGroup.rotation.x = -Math.PI / 2;
                 rawGroup.updateMatrixWorld(true);
-                
-                // Center the part perfectly so they stack clean
+
                 let box = new THREE.Box3().setFromObject(rawGroup);
                 let center = new THREE.Vector3();
-                if(!box.isEmpty() && isFinite(box.max.y)) box.getCenter(center);
+                box.getCenter(center);
+
                 rawGroup.position.set(-center.x, -center.y, -center.z);
                 rawGroup.updateMatrixWorld(true);
-                
+
                 let wrapper = new THREE.Group();
                 wrapper.userData.category = category;
                 wrapper.userData.name = category.toUpperCase();
-                wrapper.userData.baseScale = new THREE.Vector3(1, 1, 1);
-                
-                // Spin all pieces 90 degrees uniformly to face the camera
-                wrapper.rotation.y = -Math.PI / 2; 
-                
                 wrapper.add(rawGroup);
+
+                if (category === 'upper' || category === 'laces') {
+                    wrapper.rotation.y = -Math.PI / 2; 
+                }
+
                 shoeModules[category] = wrapper;
                 shoe.add(wrapper);
             } else {
                 rawGroup.userData.category = category;
                 rawGroup.userData.name = category.toUpperCase();
-                rawGroup.userData.baseScale = rawGroup.scale.clone();
                 shoeModules[category] = rawGroup;
                 shoe.add(rawGroup);
             }
@@ -547,8 +553,9 @@ function init3DEnvironment() {
             targetGroup.traverse(node => {
                 if(node.isMesh) {
                     node.castShadow = true; node.receiveShadow = true;
-                    let originalColor = node.material && node.material.color ? node.material.color : 0xffffff;
-                    node.material = new THREE.MeshStandardMaterial({ color: originalColor, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide });
+                    node.material = new THREE.MeshStandardMaterial({
+                        color: 0xffffff, roughness: 0.6, metalness: 0.1, side: THREE.DoubleSide
+                    });
                     node.userData.baseScale = node.scale.clone();
                     node.userData.parentModule = targetGroup; 
                     
@@ -568,15 +575,7 @@ function init3DEnvironment() {
             checkAllLoaded();
             
         }, undefined, (e) => {
-            if (filename === 'laces.glb') {
-                console.warn('No laces found. Skipping gracefully.');
-                let emptyLaces = new THREE.Group();
-                emptyLaces.userData.category = 'laces';
-                shoeModules['laces'] = emptyLaces;
-                shoe.add(emptyLaces);
-            } else {
-                triggerRedAlert("404 ERROR: Could not find <b>" + filename + "</b>.");
-            }
+            console.warn('Skipping file: ' + filename);
             checkAllLoaded();
         });
     };
@@ -591,69 +590,80 @@ function init3DEnvironment() {
 
     manager.onProgress = (url, itemsLoaded, itemsTotal) => { document.getElementById('progress-bar').style.width = Math.floor((itemsLoaded / itemsTotal) * 100) + '%'; };
     
-    // YOUR EXACT MATHEMATICAL STACKING LOGIC
+    // 🔒 EXACT STACKING TARGETS
     window.updateStackTargets = function() {
         if (currentMode !== 'designer' || !shoeModules.sole || !shoeModules.upper) return;
-        
+
         shoeModules.sole.updateMatrixWorld(true);
         let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
-        
+
         let rawUpper = shoeModules.upper.children[0];
         if (!rawUpper) return;
         rawUpper.updateMatrixWorld(true);
         let upperBox = new THREE.Box3().setFromObject(rawUpper);
-        
+
         let soleHeight = soleBox.max.y - soleBox.min.y;
         let upperHeight = upperBox.max.y - upperBox.min.y;
-        
-        // Pushes the Upper firmly onto the sole
-        let stackY = (soleHeight / 2) + (upperHeight / 2) +0.0001; 
-        
-        shoeModules.upper.userData.targetY = stackY;
-        
+
+        let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.08; 
+
+        shoeModules.upper.position.y = stackY;
+        shoeModules.upper.updateMatrixWorld(true);
+
         if (shoeModules.laces && shoeModules.laces.children.length > 0) {
-            let rawLaces = shoeModules.laces.children[0];
-            rawLaces.updateMatrixWorld(true);
-            let lacesBox = new THREE.Box3().setFromObject(rawLaces);
+            let lacesBox = new THREE.Box3().setFromObject(shoeModules.laces);
             let lacesHeight = lacesBox.max.y - lacesBox.min.y;
-            shoeModules.laces.userData.targetY = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
+            shoeModules.laces.position.y = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
+            shoeModules.laces.updateMatrixWorld(true);
         }
     };
 
     function finalizeEngineSetup() {
         if (currentMode === 'designer' && shoeModules.sole && shoeModules.upper) {
-            window.updateStackTargets();
-            shoeModules.upper.position.y = shoeModules.upper.userData.targetY;
-            if(shoeModules.laces && shoeModules.laces.userData.targetY !== undefined) {
-                shoeModules.laces.position.y = shoeModules.laces.userData.targetY;
+            shoe.updateMatrixWorld(true);
+
+            let soleBox = new THREE.Box3().setFromObject(shoeModules.sole);
+            let upperBox = new THREE.Box3().setFromObject(shoeModules.upper);
+
+            let soleHeight = soleBox.max.y - soleBox.min.y;
+            let upperHeight = upperBox.max.y - upperBox.min.y;
+
+            let stackY = (soleHeight / 2) + (upperHeight / 2) - 0.08;
+
+            shoeModules.upper.position.y = stackY;
+            shoeModules.upper.updateMatrixWorld(true);
+
+            if (shoeModules.laces && shoeModules.laces.children.length > 0) {
+                let lacesBox = new THREE.Box3().setFromObject(shoeModules.laces);
+                let lacesHeight = lacesBox.max.y - lacesBox.min.y;
+                shoeModules.laces.position.y = stackY + (upperHeight / 2) + (lacesHeight / 2) - 0.05;
+                shoeModules.laces.updateMatrixWorld(true);
             }
         }
 
         const combinedBox = new THREE.Box3().setFromObject(shoe);
-        if(!combinedBox.isEmpty()) {
-            const center = combinedBox.getCenter(new THREE.Vector3());
-            const size = combinedBox.getSize(new THREE.Vector3());
-            const maxDim = Math.max(size.x, size.y, size.z);
-            
-            if (maxDim > 0 && maxDim !== Infinity && !isNaN(maxDim)) {
-                const scale = 8 / maxDim;
-                shoe.scale.set(scale, scale, scale);
-                shoe.position.sub(center.multiplyScalar(scale));
-                shoe.position.y += 0.5;
-                shoe.position.x -= 1.5; 
-                shoe.updateMatrixWorld(true);
-            }
+        const center = combinedBox.getCenter(new THREE.Vector3());
+        const size = combinedBox.getSize(new THREE.Vector3());
+        const maxDim = Math.max(size.x, size.y, size.z);
+        
+        if (maxDim > 0 && maxDim !== Infinity) {
+            const scale = 8 / maxDim;
+            shoe.scale.set(scale, scale, scale);
+            shoe.position.sub(center.multiplyScalar(scale));
+            shoe.position.y += 0.5;
+            shoe.position.x -= 1.5; 
+            shoe.updateMatrixWorld(true);
         }
 
         if (currentMode === 'designer') {
             Object.values(shoeModules).forEach(mod => {
                 if (mod) {
+                    mod.userData.baseScale = mod.scale.clone();
                     mod.userData.basePos = mod.position.clone();
-                    if (mod.userData.targetY === undefined) mod.userData.targetY = mod.position.y;
+                    mod.userData.targetY = mod.position.y;
                     mod.visible = false; 
                 }
             });
-            if(shoeModules.sole) shoeModules.sole.visible = true; // SOLE IS VISIBLE IN PHASE 1
         } else {
             selectableParts.forEach(p => {
                 p.userData.basePos = p.position.clone();
@@ -668,9 +678,6 @@ function init3DEnvironment() {
             if(currentMode === 'designer') {
                 showToast("Studio locked to Auto-Snapping Assembly.");
                 designerStep(0); 
-            } else {
-                document.getElementById('instruction-text').style.display = 'block';
-                showToast(currentMode.toUpperCase() + " Mode Active.");
             }
         }, 500);
     }
@@ -690,7 +697,6 @@ function init3DEnvironment() {
         // 🚀 INJECTED: Toggles crosshair vs default selection based on sculpt tool
         if (currentSculptTool === 'none') {
             if (hoveredPart && hoveredPart !== activePart) hoveredPart.material.emissive.setHex(0x000000);
-            
             if (hits.length > 0) {
                 hoveredPart = hits[0].object; 
                 container.style.cursor = 'crosshair';
@@ -716,7 +722,6 @@ function init3DEnvironment() {
         
         const hits = raycaster.intersectObjects(validMeshes, true);
         
-        // 🚀 INJECTED: Placement Logic + Fixed Selection Bug
         if (currentSculptTool !== 'none' && activePart) {
             
             // Delete Marker
@@ -728,7 +733,7 @@ function init3DEnvironment() {
                 return; 
             }
 
-            // Clicked a completely different part? Switch active part instead of carving!
+            // Switch active part instead of carving!
             if (hits.length > 0) {
                 let clickedPart = hits[0].object;
                 if (clickedPart.userData.parentModule !== activePart.userData.parentModule) {
@@ -752,7 +757,6 @@ function init3DEnvironment() {
                 let marker = new THREE.Mesh(geo, mat);
                 marker.position.copy(intersect.point);
                 
-                // 🚀 FIXED: Finds the absolute normal factoring in the 90-degree wrapper rotations
                 let normalMatrix = new THREE.Matrix3().getNormalMatrix(intersect.object.matrixWorld);
                 let worldNormal = intersect.face.normal.clone().applyMatrix3(normalMatrix).normalize();
                 
@@ -785,7 +789,6 @@ function selectPart(target) {
     clearColorSelections();
     
     if(currentMode === 'advanced' || currentMode === 'designer') {
-        // 🚀 INJECTED: Keep sliders visible only if not sculpting
         if (currentSculptTool === 'none') {
             document.getElementById('cad-sliders').style.display = 'block';
         }
@@ -799,7 +802,6 @@ function selectPart(target) {
             targetMod.userData.baseScale = targetMod.scale.clone();
         }
         
-        // Match axes based on the uniform wrapper spin
         let mapX = 'x', mapZ = 'z';
         if (currentMode === 'designer') {
              mapX = 'z'; mapZ = 'x'; 
@@ -837,7 +839,8 @@ function designerStep(direction) {
         document.getElementById('ds-prev').style.display = 'none';
         document.getElementById('ds-next').innerText = "Next Phase";
         document.getElementById('ds-upper-tools').style.display = 'none';
-        document.getElementById('cad-sliders').style.display = 'block'; 
+        
+        if (currentSculptTool === 'none') document.getElementById('cad-sliders').style.display = 'block'; 
         
         camera.position.set(-1.5, 2, 10); 
         controls.target.set(-1.5, 0, 0);
@@ -861,7 +864,8 @@ function designerStep(direction) {
         document.getElementById('ds-prev').style.display = 'block';
         document.getElementById('ds-next').innerText = "Next Phase";
         document.getElementById('ds-upper-tools').style.display = 'block'; 
-        document.getElementById('cad-sliders').style.display = 'block'; 
+        
+        if (currentSculptTool === 'none') document.getElementById('cad-sliders').style.display = 'block'; 
         
         camera.position.set(8, 6, 8); 
         controls.target.set(-1.5, 1, 0);
@@ -1141,55 +1145,45 @@ window.setSculptTool = (tool, btn) => {
     }
 };
 
+// 🚀 FIXED: REWIRED TO TALK EXCLUSIVELY TO PYTHON
 window.executeCarve = () => {
     if (sculptMarkers.length === 0) {
         showToast("Click the 3D model to place red cutting markers first.");
         return;
     }
-    
-    // We are checking for window.THREE_CSG_TS.CSG
-    const CSG_LIB = window.THREE_CSG_TS ? window.THREE_CSG_TS.CSG : null;
-    
-    if (!CSG_LIB) {
-        showToast("CSG Library failed to load. Check adblockers or try Incognito mode.");
-        return;
-    }
 
-    showToast("Processing Boolean Cut... Calculating Geometry.");
+    showToast("Sending coordinates to Local Python Engine...");
     
-    setTimeout(() => {
-        try {
-            activePart.updateMatrixWorld(true);
-            let bspA = CSG_LIB.fromMesh(activePart);
-            let modified = false;
-            
-            sculptMarkers.forEach(marker => {
-                marker.updateMatrixWorld(true);
-                let toolCSG = CSG_LIB.fromMesh(marker);
-                bspA = bspA.subtract(toolCSG);
-                modified = true;
-            });
-            
-            if (modified) {
-                let newMesh = CSG_LIB.toMesh(bspA, activePart.matrixWorld, activePart.material);
-                
-                // Keep the newly cut geometry from flying off the screen
-                let inverseMatrix = new THREE.Matrix4().copy(activePart.matrixWorld).invert();
-                newMesh.geometry.applyMatrix4(inverseMatrix);
-                
-                activePart.geometry.dispose(); 
-                activePart.geometry = newMesh.geometry;
-            }
-            
-            sculptMarkers.forEach(m => markerGroup.remove(m));
-            sculptMarkers = [];
-            
-            showToast("Carving Successful!");
-        } catch(e) {
-            console.error(e);
-            showToast("Error: Geometry Too Complex. Try fewer cuts.");
-        }
-    }, 100);
+    // 1. Grab the exact coordinates of the red marker
+    let marker = sculptMarkers[0]; 
+    let cutData = {
+        tool: currentSculptTool,
+        size: parseFloat(document.getElementById('tool-size').value),
+        x: marker.position.x,
+        y: marker.position.y,
+        z: marker.position.z
+    };
+
+    // 2. Send the data to your Python server using the Fetch API
+    fetch('http://127.0.0.1:5000/carve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cutData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        // 3. Python responded successfully!
+        console.log("Python says:", data);
+        showToast(data.message);
+        
+        // Clean up the marker after sending
+        markerGroup.remove(marker);
+        sculptMarkers = sculptMarkers.filter(m => m !== marker);
+    })
+    .catch(error => {
+        console.error("Connection Error:", error);
+        showToast("Error: Could not reach Python server. Is it running?");
+    });
 };
 </script>
 </body>
