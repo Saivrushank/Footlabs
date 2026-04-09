@@ -1146,50 +1146,34 @@ window.executeCarve = () => {
         showToast("Click the 3D model to place red cutting markers first.");
         return;
     }
-    
-    // We are checking for window.THREE_CSG_TS.CSG
-    const CSG_LIB = window.THREE_CSG_TS ? window.THREE_CSG_TS.CSG : null;
-    
-    if (!CSG_LIB) {
-        showToast("CSG Library failed to load. Check adblockers or try Incognito mode.");
-        return;
-    }
 
-    showToast("Processing Boolean Cut... Calculating Geometry.");
+    showToast("Sending coordinates to Local Python Engine...");
     
-    setTimeout(() => {
-        try {
-            activePart.updateMatrixWorld(true);
-            let bspA = CSG_LIB.fromMesh(activePart);
-            let modified = false;
-            
-            sculptMarkers.forEach(marker => {
-                marker.updateMatrixWorld(true);
-                let toolCSG = CSG_LIB.fromMesh(marker);
-                bspA = bspA.subtract(toolCSG);
-                modified = true;
-            });
-            
-            if (modified) {
-                let newMesh = CSG_LIB.toMesh(bspA, activePart.matrixWorld, activePart.material);
-                
-                // Keep the newly cut geometry from flying off the screen
-                let inverseMatrix = new THREE.Matrix4().copy(activePart.matrixWorld).invert();
-                newMesh.geometry.applyMatrix4(inverseMatrix);
-                
-                activePart.geometry.dispose(); 
-                activePart.geometry = newMesh.geometry;
-            }
-            
-            sculptMarkers.forEach(m => markerGroup.remove(m));
-            sculptMarkers = [];
-            
-            showToast("Carving Successful!");
-        } catch(e) {
-            console.error(e);
-            showToast("Error: Geometry Too Complex. Try fewer cuts.");
-        }
-    }, 100);
+    let marker = sculptMarkers[0]; 
+    let cutData = {
+        tool: currentSculptTool,
+        size: parseFloat(document.getElementById('tool-size').value),
+        x: marker.position.x,
+        y: marker.position.y,
+        z: marker.position.z
+    };
+
+    fetch('http://127.0.0.1:5000/carve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(cutData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log("Python says:", data);
+        showToast(data.message);
+        markerGroup.remove(marker);
+        sculptMarkers = sculptMarkers.filter(m => m !== marker);
+    })
+    .catch(error => {
+        console.error("Connection Error:", error);
+        showToast("Error: Could not reach Python server. Is it running?");
+    });
 };
 </script>
 </body>
