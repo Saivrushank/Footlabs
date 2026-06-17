@@ -336,7 +336,7 @@
             <div class="checkout-area" id="checkout-footer">
                 <div class="price-display">
                     <span>Total Price</span>
-                    <span id="price-tag">$120</span>
+                    <span id="price-tag">₹120</span>
                 </div>
                 <button class="checkout-btn" onclick="showCheckout()">Finish Design</button>
             </div>
@@ -350,12 +350,12 @@
                 <p>Order Summary</p>
             </div>
             
-            <div class="line-item"><span>Base Chassis</span><span>$120.00</span></div>
-            <div class="line-item" id="receipt-materials"><span>Material Upcharges</span><span>$0.00</span></div>
-            <div class="line-item" id="receipt-advanced" style="display:none; color: #e6a822;"><span>Advanced CAD Engine Fee</span><span>$50.00</span></div>
-            <div class="line-item" id="receipt-designer" style="display:none; color: #e6a822;"><span>Bespoke Design Fee</span><span>$80.00</span></div>
+            <div class="line-item"><span>Base Chassis</span><span>₹120.00</span></div>
+            <div class="line-item" id="receipt-materials"><span>Material Upcharges</span><span>₹0.00</span></div>
+            <div class="line-item" id="receipt-advanced" style="display:none; color: #e6a822;"><span>Advanced CAD Engine Fee</span><span>₹50.00</span></div>
+            <div class="line-item" id="receipt-designer" style="display:none; color: #e6a822;"><span>Bespoke Design Fee</span><span>₹80.00</span></div>
             
-            <div class="line-item bold"><span>Total Due</span><span id="receipt-total">$120.00</span></div>
+            <div class="line-item bold"><span>Total Due</span><span id="receipt-total">₹120.00</span></div>
             
             <button class="btn-confirm" onclick="alert('Order Sent to Manufacturing!')">Confirm & Build</button>
             <div class="btn-close" onclick="closeCheckout()">Return to Studio</div>
@@ -1052,16 +1052,16 @@ function calculatePrice() {
     let total = basePrice + matUpcharges;
     if (currentMode === 'advanced') total += 50; 
     if (currentMode === 'designer') total += 80;
-    document.getElementById('price-tag').innerText = "$" + total;
+    document.getElementById('price-tag').innerText = "₹" + total;
     return { base: basePrice, mats: matUpcharges, total: total };
 }
 
 window.showCheckout = () => {
     const p = calculatePrice();
-    document.getElementById('receipt-materials').querySelector('span:nth-child(2)').innerText = "$" + p.mats.toFixed(2);
+    document.getElementById('receipt-materials').querySelector('span:nth-child(2)').innerText = "₹" + p.mats.toFixed(2);
     document.getElementById('receipt-advanced').style.display = currentMode === 'advanced' ? 'flex' : 'none';
     document.getElementById('receipt-designer').style.display = currentMode === 'designer' ? 'flex' : 'none';
-    document.getElementById('receipt-total').innerText = "$" + p.total.toFixed(2);
+    document.getElementById('receipt-total').innerText = "₹" + p.total.toFixed(2);
     const modal = document.getElementById('checkout-modal');
     modal.style.display = 'flex'; setTimeout(() => { modal.classList.add('visible'); }, 10);
 };
